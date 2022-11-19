@@ -73,9 +73,6 @@ $satellite_mode = d('@server_master')->satellite_mode;
 if (!$satellite_mode) {
   $satellite_mode = drush_get_option('satellite_mode');
 }
-if (!$satellite_mode && $server->satellite_mode) {
-  $satellite_mode = $server->satellite_mode;
-}
 
 if ($nginx_is_modern) {
   print "  limit_conn_zone \$binary_remote_addr zone=limreq:10m;\n";

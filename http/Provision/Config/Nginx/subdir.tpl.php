@@ -73,9 +73,6 @@ $satellite_mode = d('@server_master')->satellite_mode;
 if (!$satellite_mode) {
   $satellite_mode = drush_get_option('satellite_mode');
 }
-if (!$satellite_mode && $server->satellite_mode) {
-  $satellite_mode = $server->satellite_mode;
-}
 
 $subdir_loc = str_replace('/', '_', $subdir);
 $subdir_dot = str_replace('/', '.', $subdir);
