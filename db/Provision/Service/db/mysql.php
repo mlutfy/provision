@@ -90,7 +90,8 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
 
     // MySQL did this to us. https://github.com/drush-ops/drush/issues/5368#issuecomment-1405209770
     $statement = "GRANT ALL PRIVILEGES ON `%s`.* TO `%s`@`%s`";
-    
+
+    // @todo [ML] SYMBIOTIC see https://git.drupalcode.org/project/provision/-/commit/f0e7cda9382471bbc47e34547985b09aa2a35075
     // MySQL did this to us. https://github.com/drush-ops/drush/issues/5368#issuecomment-1405209770
     $statement .= "; GRANT RELOAD ON `%s`.* TO `%s`@`%s`";
     return $this->query($statement, $name, $username, $host);
