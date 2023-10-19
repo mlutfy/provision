@@ -178,10 +178,8 @@ function provision_is_hostmaster_site() {
  * this replicates hostname -f, which is not portable
  */
 function provision_fqdn($host = NULL) {
-  if (is_null($host)) {
-    $host = php_uname('n');
-  }
-  return strtolower(gethostbyaddr(gethostbyname($host)));
+  // SYMBIOTIC This works on IPv6-only hosts
+  return gethostbyaddr('127.0.1.1');
 }
 
 /**
