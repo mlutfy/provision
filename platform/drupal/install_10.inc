@@ -102,15 +102,20 @@ function install_main() {
   $sql = drush_sql_get_class();
   $db_spec = $sql->db_spec();
 
-  $db_spec['db_prefix'] = $GLOBALS['db_prefix'];
+  $db_spec['db_prefix'] = $GLOBALS['db_prefix'] ?? '';
 
   if ($db_spec['driver'] == 'mysqli') {
     $db_spec['driver'] = 'mysql';
   }
 
-
-  unset($config['site_name']);
-  unset($config['site_mail']);
+  if (isset($config)) {
+     if (!empty($config['site_name'])) {
+       unset($config['site_name']);
+     }
+     if (!empty($config['site_mail'])) {
+       unset($config['site_mail']);
+     }
+  }
   unset($GLOBALS['db_url']);
 
   $account_pass = provision_password();
