@@ -50,16 +50,13 @@ function drush_provision_drupal_post_provision_import() {
     drush_set_option('provision_save_config', false);
 
     // We still run this extra backend sub-task to properly register packages etc.
-    provision_backend_invoke(d()->name, 'provision-verify');
+    # provision_backend_invoke(d()->name, 'provision-verify');
+    # sleep(5); // A small trick to avoid high load and race conditions.
 
-    $aegir_root = d('@server_master')->aegir_root;
-    $enable_fast_track = $aegir_root . '/static/control/FastTrack.info';
-
-    if (!is_file($enable_fast_track)) {
-      sleep(5); // A small trick to avoid high load and race conditions.
-      // We run this extra verify via frontend to avoid issue #1004526.
-      provision_backend_invoke('@hostmaster', 'hosting-task', array(d()->name, 'verify'), array('force' => TRUE));
-    }
+    // We run this extra verify via frontend to avoid issue #1004526.
+    # [ML] fails for d9 sites
+    # https://www.drupal.org/project/provision/issues/3282830
+    # provision_backend_invoke('@hostmaster', 'hosting-task', array(d()->name, 'verify'), array('force' => TRUE));
 
     drush_include_engine('drupal', 'cron_key');
 
