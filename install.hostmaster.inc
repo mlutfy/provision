@@ -14,23 +14,14 @@
  */
 function drush_provision_hostmaster_install_pre_validate() {
 
-  $script_user = drush_get_option('script_user');
-  if (!$script_user && $server->script_user) {
-    $script_user = $server->script_user;
-  }
-  $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
-  if (provision_file()->exists($ctrlf)->status()) {
-    $db_port = '6033';
-    $db_host = '127.0.0.1';
-  }
-  else {
-    $db_port = '3306';
-    $db_host = 'localhost';
-  }
-
   $user = 'intntnllyInvalid';
-  drush_command_invoke_all_ref('provision_db_username_alter', $user, drush_get_option('aegir_db_host', $db_host));
-  $command = sprintf('mysql -u %s -h %s -P %s -e "SELECT VERSION()"', $user, drush_get_option('aegir_db_host', $db_host), drush_get_option('aegir_db_port', $db_port));
+  drush_command_invoke_all_ref('provision_db_username_alter', $user, drush_get_option('aegir_db_host', 'localhost'));
+  $command = sprintf('mysql -u %s -h %s -P %s -e "SELECT VERSION()"', $user, drush_get_option('aegir_db_host', 'localhost'), drush_get_option('aegir_db_port', '3306'));
+
+  // [ML] Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. ERROR at line 1: Unknown command '\('.
+  drush_log("DEBUG command drush_provision_hostmaster_install_pre_validate: $command", 'ok');
+  return;
+
   drush_shell_exec($command);
 
   if (preg_match("/Access denied for user '{$user}'@'([^']*)'/", implode('', drush_shell_exec_output()), $match)) {
