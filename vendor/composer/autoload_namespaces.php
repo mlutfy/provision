@@ -7,5 +7,4 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Provision_' => array($baseDir . '/Provision'),
-    'N98\\JUnitXml' => array($vendorDir . '/n98/junit-xml/src'),
 );
