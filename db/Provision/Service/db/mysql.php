@@ -519,135 +519,59 @@ port=%s
     // '--set-gtid-purged=OFF' option to suppress the restoration of GTIDs.  GTIDs were added in MySQL version 5.6
     if (drush_get_option('provision_mysqldump_suppress_gtid_restore', FALSE)) {
       $gtid_option = '--set-gtid-purged=OFF';
-    } // if
+    }
     else {
       $gtid_option = '';
-    } // else
-
-    if (empty($creds)) {
-      $creds = $this->fetch_site_credentials();
     }
-    extract($creds);
-    drush_log(dt("DEBUG MyQuick generate_dump mysql.php db_name @var", array('@var' => $db_name)), 'info');
-    $mydumper_path = '/usr/local/bin/mydumper';
-    $myloader_path = '/usr/local/bin/myloader';
-    $script_user = d('@server_master')->script_user;
-    $aegir_root = d('@server_master')->aegir_root;
-    $backup_path = d('@server_master')->backup_path;
-    $oct_db_dirx = $backup_path . '/tmp_expim';
-    $pass_php_inc = $aegir_root . '/.' . $script_user . '.pass.php';
-    drush_log(dt("DEBUG MyQuick generate_dump mysql.php pass_php_inc @var", array('@var' => $pass_php_inc)), 'info');
-    $enable_myquick = $aegir_root . '/static/control/MyQuick.info';
-    drush_log(dt("DEBUG MyQuick generate_dump mysql.php enable_myquick @var", array('@var' => $enable_myquick)), 'info');
-    if (is_file($enable_myquick) && is_executable($mydumper_path)) {
 
-      $oct_db_test = $oct_db_dirx . '/metadata';
-      while (is_file($oct_db_test) && $count <= 6) {
-        $count++;
-        sleep(10);
-        drush_log(dt("DEBUG MyQuick wait 10s for prev db-dump cleanup x @var times (max 6) in generate_dump", array('@var' => $count)), 'info');
-      }
-
-      if (provision_file()->exists($pass_php_inc)->status()) {
-        include_once($pass_php_inc);
-      }
-
-      if ($db_name) {
-        $mycnf = $this->generate_mycnf();
-        $oct_db_user = $db_user;
-        $oct_db_pass = $db_passwd;
-        $oct_db_host = $db_host;
-        $oct_db_port = $db_port;
-
-        if ($this->server->db_port == '6033') {
-          if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
-            include('/opt/tools/drush/proxysql_adm_pwd.inc');
-            if ($writer_node_ip) {
-              drush_log('Skip ProxySQL in generate_dump', 'notice');
-              $oct_db_host = $writer_node_ip;
-              $oct_db_port = '3306';
-            }
-            else {
-              drush_log('Using ProxySQL in generate_dump', 'notice');
-            }
-          }
+    // [ML] SYMBIOTIC If the drush options are not set, do it ourselves
+    if (!drush_get_option('db_name')) {
+      global $options;
+      require_once d()->site_path . '/drushrc.php';
+      foreach (['db_type', 'db_port', 'db_host', 'db_user', 'db_passwd', 'db_name'] as $opt) {
+        if (!empty($options[$opt])) {
+          drush_set_option($opt, $options[$opt]);
         }
       }
-      else {
-        drush_log(dt("DEBUG MyQuick generate_dump mysql.php FAIL no db_name @var", array('@var' => $db_name)), 'info');
-      }
+    }
 
-      if (is_dir($oct_db_dirx)) {
-        drush_log(dt("DEBUG MyQuick generate_dump mysql.php delete @var", array('@var' => $oct_db_dirx)), 'info');
-        _provision_recursive_delete($oct_db_dirx);
-        drush_log(dt("DEBUG MyQuick tmp_expim dir removed @var", array('@var' => $oct_db_dirx)), 'info');
-      }
+    // Mixed copy-paste of drush_shell_exec and provision_shell_exec.
+    $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --no-tablespaces --no-autocommit --skip-add-locks --single-transaction --quick --hex-blob %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));
 
-      if (!is_dir($oct_db_dirx)) {
-        drush_log(dt("DEBUG MyQuick generate_dump mysql.php create @var", array('@var' => $oct_db_dirx)), 'info');
-        provision_file()->mkdir($oct_db_dirx)
-          ->succeed('Created <code>@path</code>')
-          ->fail('Could not create <code>@path</code>', 'DRUSH_PERM_ERROR');
-      }
-
-      $threads = provision_count_cpus();
-      $threads = intval($threads / 4) + 1;
-      drush_log(dt("DEBUG MyQuick generate_dump mysql.php db_name @var", array('@var' => $db_name)), 'info');
-      drush_log(dt("DEBUG MyQuick generate_dump mysql.php oct_db_user @var", array('@var' => $oct_db_user)), 'info');
-      drush_log(dt("DEBUG MyQuick generate_dump mysql.php oct_db_pass @var", array('@var' => $oct_db_pass)), 'info');
-      drush_log(dt("DEBUG MyQuick generate_dump mysql.php oct_db_host @var", array('@var' => $oct_db_host)), 'info');
-      drush_log(dt("DEBUG MyQuick generate_dump mysql.php oct_db_port @var", array('@var' => $oct_db_port)), 'info');
-
-      if (is_dir($oct_db_dirx) &&
-        $db_name &&
-        $oct_db_user &&
-        $oct_db_pass &&
-        $oct_db_host &&
-        $oct_db_port) {
-        $command = sprintf($mydumper_path . ' --database=' . $db_name . ' --host=' . $oct_db_host . ' --user=' . $oct_db_user . ' --password=' . $oct_db_pass . ' --port=' . $oct_db_port . ' --outputdir=' . $oct_db_dirx . ' --rows=50000 --build-empty-files --threads=' . $threads . ' --less-locking --long-query-guard=900 --verbose=1');
-        drush_log(dt("DEBUG MyQuick generate_dump mysql.php Cmd @var", array('@var' => $command)), 'info');
-        drush_shell_exec($command);
-      }
+    // Fail if db file already exists.
+    $dump_file = fopen(d()->site_path . '/database.sql', 'x');
+    if ($dump_file === FALSE) {
+      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
     }
     else {
-      // Mixed copy-paste of drush_shell_exec and provision_shell_exec.
-      $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --no-tablespaces --no-autocommit --skip-add-locks --single-transaction --quick --hex-blob %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));
+      $pipes = array();
+      $descriptorspec = $this->generate_descriptorspec();
+      $process = proc_open($cmd, $descriptorspec, $pipes);
+      if (is_resource($process)) {
+        fwrite($pipes[3], $this->generate_mycnf());
+        fclose($pipes[3]);
 
-      // Fail if db file already exists.
-      $dump_file = fopen(d()->site_path . '/database.sql', 'x');
-      if ($dump_file === FALSE) {
-        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
+        // At this point we have opened a pipe to that mysqldump command. Now
+        // we want to read it one line at a time and do our replacements.
+        while (($buffer = fgets($pipes[1], 4096)) !== FALSE) {
+          $this->filter_line($buffer);
+          // Write the resulting line in the backup file.
+          if ($buffer && fwrite($dump_file, $buffer) === FALSE) {
+            drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
+          }
+        }
+        // Close stdout.
+        fclose($pipes[1]);
+        // Catch errors returned by mysqldump.
+        $err = fread($pipes[2], 4096);
+        // Close stderr as well.
+        fclose($pipes[2]);
+        if (proc_close($process) != 0) {
+          drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump (command: %command) (error: %msg)', array('%msg' => $err, '%command' => $cmd)));
+        }
       }
       else {
-        $pipes = array();
-        $descriptorspec = $this->generate_descriptorspec();
-        $process = proc_open($cmd, $descriptorspec, $pipes);
-        if (is_resource($process)) {
-          fwrite($pipes[3], $this->generate_mycnf());
-          fclose($pipes[3]);
-
-          // At this point we have opened a pipe to that mysqldump command. Now
-          // we want to read it one line at a time and do our replacements.
-          while (($buffer = fgets($pipes[1], 4096)) !== FALSE) {
-            $this->filter_line($buffer);
-            // Write the resulting line in the backup file.
-            if ($buffer && fwrite($dump_file, $buffer) === FALSE) {
-              drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
-            }
-          }
-          // Close stdout.
-          fclose($pipes[1]);
-          // Catch errors returned by mysqldump.
-          $err = fread($pipes[2], 4096);
-          // Close stderr as well.
-          fclose($pipes[2]);
-          if (proc_close($process) != 0) {
-            drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump (command: %command) (error: %msg)', array('%msg' => $err, '%command' => $cmd)));
-          }
-        }
-        else {
-          drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not run mysqldump for backups'));
-        }
+        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not run mysqldump for backups'));
       }
 
       $dump_size_too_small = filesize(d()->site_path . '/database.sql') < 1024;
