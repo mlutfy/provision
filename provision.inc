@@ -725,6 +725,25 @@ function provision_process($command, $cwd = null, $label = 'Process', $env = arr
 }
 
 /**
+ * For Drupal 8/9/10
+ */
+function provision_get_drupal_core_version() {
+  $core_path = d()->root . '/core/lib/Drupal.php';
+
+  if (file_exists($core_path)) {
+    $file_contents = file_get_contents($core_path);
+    preg_match('/const VERSION = \'(.*?)\';/', $file_contents, $matches);
+
+    if (!empty($matches[1])) {
+      $drupal_version = $matches[1];
+      return $drupal_version;
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * the aegir version of the backend
  *
  * @return string
