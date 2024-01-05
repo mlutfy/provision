@@ -88,12 +88,36 @@ function drush_provision_drupal_pre_provision_install_rollback() {
  * weird problems such as the multiple database connections don't confuse drupal.
  */
 function drush_provision_drupal_provision_install() {
- // Requires at least the database settings to complete.
-  provision_lock_some_vnd();
+  // Requires at least the database settings to complete.
   provision_prepare_environment();
   _provision_drupal_create_settings_file();
   provision_drupal_push_site($override_slave_authority = TRUE);
   provision_save_site_data();
+
+  $drupal_core_version = provision_get_drupal_core_version();
+  drush_log('provision_install Detected core ' . $drupal_core_version, 'ok');
+
+  if (version_compare($drupal_core_version, 10, '>=')) {
+    drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
+    chdir(d()->site_path);
+    // @todo profile?
+    $client_email = drush_get_option('client_email');
+    $site_name = ltrim(d()->name, '@');
+
+    $aegir_db_user = drush_get_option('db_user');
+    $aegir_db_pass = drush_get_option('db_passwd');
+    $aegir_db_port = drush_get_option('db_port');
+    $aegir_db_host = drush_get_option('db_host');
+    $aegir_db_name = drush_get_option('db_name');
+
+    $db = "mysql://$aegir_db_user:$aegir_db_pass@$aegir_db_host:$aegir_db_port/$aegir_db_name";
+    $command = '../../../vendor/drush/drush/drush site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+    drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+    $output = system($command, $retval);
+    drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
+    return;
+  }
+
   drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
 
   // Install site according to install_method.
