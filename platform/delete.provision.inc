@@ -46,6 +46,9 @@ function drush_provision_drupal_provision_delete() {
     // Do not automatically save the drushrc at the end of the command.
     drush_set_option('provision_save_config', false);
 
+    // It will not be possible to delete otherwise
+    provision_file()->chmod(d()->site_path, 0755);
+
     _provision_recursive_delete(d()->site_path);
     // we remove the aliases even if redirection is enabled as a precaution
     // if redirection is enabled, keep silent about errors
