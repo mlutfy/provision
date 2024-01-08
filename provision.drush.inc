@@ -285,7 +285,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-delete' => 'Delete the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-login-reset'] = array(
@@ -294,7 +294,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-login-reset' => 'Generate a one-time login reset URL for the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-backup-delete'] = array(
