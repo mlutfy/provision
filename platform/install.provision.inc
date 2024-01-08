@@ -118,8 +118,8 @@ function drush_provision_drupal_provision_install() {
 
     // Fix permissions
     drush_log(dt("Drupal: running fix-drupal-site-ownership.sh and permissions..."), 'ok');
-    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-ownership.sh --root=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
-    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-permissions.sh --root=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
+    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-ownership.sh --site-path=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
+    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-permissions.sh --site-path=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
     drush_log(dt("Drupal: finished running fix-drupal-site-ownership.sh and permissions"), 'ok');
     return;
   }
