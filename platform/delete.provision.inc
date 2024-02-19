@@ -34,8 +34,6 @@ function drush_provision_drupal_provision_delete() {
     // See Drush commit 3b74d40b1228f022464b92243c16127eb613c2df
     drush_set_context('DRUSH_SELECTED_DRUPAL_ROOT', d()->root);
 
-    provision_lock_some_vnd();
-
     drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_ROOT);
 
     drush_invoke_process('@none', 'provision-save', array(d()->name), array('delete' => TRUE));
@@ -64,8 +62,6 @@ function drush_provision_drupal_provision_delete() {
     // Add platform root auto-discovery to avoid confusing
     // Composer based D8+ codebase root with Drupal real root.
     d()->root = provision_auto_fix_platform_root(d()->root);
-
-    provision_unlock_some_vnd();
 
     // Make sure if we are within parent codebase directory
     $test_parent = dirname(d()->root);

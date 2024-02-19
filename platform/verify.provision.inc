@@ -12,21 +12,10 @@
  */
 function drush_provision_drupal_provision_verify_validate() {
   if (d()->type === 'site') {
-    provision_lock_some_vnd();
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
     provision_prepare_environment();
-
     _provision_drupal_create_settings_file();
     provision_drupal_push_site();
-
     drush_errors_on();
-    if (drush_drupal_major_version() < 12) {
-      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
-    }
-    else {
-      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION);
-      drush_log("Skipping FULL bootstrap for drupal 12+ in drush_provision_drupal_provision_verify_validate");
-    }
   }
 }
 
@@ -434,7 +423,6 @@ function drush_provision_drupal_pre_provision_verify() {
  * Implements drush_hook_provision_post_COMMAND().
  */
 function drush_provision_drupal_post_provision_verify() {
-
   // Add platform root auto-discovery to avoid confusing
   // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
@@ -447,8 +435,5 @@ function drush_provision_drupal_post_provision_verify() {
 
     _provision_client_create_symlink();
     drush_include_engine('drupal', 'cron_key');
-  }
-  if (d()->type === 'platform') {
-    provision_lock_some_vnd();
   }
 }
