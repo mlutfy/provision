@@ -138,7 +138,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-import' => 'Import the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-backup'] = array(

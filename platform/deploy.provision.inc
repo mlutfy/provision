@@ -179,35 +179,27 @@ function drush_provision_drupal_post_provision_deploy() {
       drush_log(dt('Registry rebuilt with --no-cache-clear in drush_provision_drupal_post_provision_deploy'));
     }
   }
+
   // Call the drush updatedb command.
-  provision_backend_invoke(d()->name, 'updatedb');
+  $drupal_core_version = provision_get_drupal_core_version();
+
+  if ($drupal_core_version && version_compare($drupal_core_version, 9, '>=')) {
+    $command = "drush updatedb -y";
+    drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+    chdir(d()->site_path);
+    $output = system($command, $retval);
+    drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
+  }
+  else {
+    provision_backend_invoke(d()->name, 'updatedb');
+  }
+
   // Run registry-rebuild with cache-clear, if available.
   if (function_exists('drush_registry_rebuild')) {
     if (drush_drupal_major_version() < 8 && !provision_is_hostmaster_site()) {
       provision_backend_invoke(d()->name, 'registry-rebuild');
       drush_log(dt('Registry rebuilt without --no-cache-clear in drush_provision_drupal_post_provision_deploy'));
     }
-  }
-  if (drush_drupal_major_version() < 12) {
-    // We should be able to fully load Drupal now.
-    if (drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL)) {
-      drush_include_engine('drupal', 'deploy');
-      drush_set_option('packages', _scrub_object(provision_drupal_system_map()), 'site');
-      _provision_drupal_rebuild_caches();
-
-      // Rebuild the node access tables only if necessary.
-      if (!function_exists("node_access_needs_rebuild") || node_access_needs_rebuild()) {
-        node_access_rebuild();
-        drush_log(dt('Rebuilt node access table'));
-      }
-    }
-    else {
-      drush_log("could not bootstrap drupal after updatedb");
-    }
-  }
-  else {
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION);
-    drush_log("Skipping FULL bootstrap for drupal 12+ in drush_provision_drupal_post_provision_deploy");
   }
 
   // Remove the restore directory.
