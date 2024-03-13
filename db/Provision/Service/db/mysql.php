@@ -524,16 +524,8 @@ port=%s
       $gtid_option = '';
     }
 
-    // [ML] SYMBIOTIC If the drush options are not set, do it ourselves
-    if (!drush_get_option('db_name')) {
-      global $options;
-      require_once d()->site_path . '/drushrc.php';
-      foreach (['db_type', 'db_port', 'db_host', 'db_user', 'db_passwd', 'db_name'] as $opt) {
-        if (!empty($options[$opt])) {
-          drush_set_option($opt, $options[$opt]);
-        }
-      }
-    }
+    // Make sure that the drush options are correctly set
+    $creds = $this->fetch_site_credentials();
 
     // Mixed copy-paste of drush_shell_exec and provision_shell_exec.
     $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --no-tablespaces --no-autocommit --skip-add-locks --single-transaction --quick --hex-blob %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));

@@ -409,6 +409,7 @@ function drush_provision_drupal_pre_provision_verify() {
     // If this is the hostmaster site, save the ~/.drush/drushrc.php file.
     $hostmaster = provision_sitealias_get_record('@hostmaster');
     if (d()->root == $hostmaster['root'] && d()->uri == $hostmaster['uri']) {
+      d()->service('db')->fetch_site_credentials();
       $aegir_drushrc = new Provision_Config_Drushrc_Aegir();
       $aegir_drushrc->write();
 

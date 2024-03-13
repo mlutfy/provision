@@ -212,7 +212,8 @@ function provision_save_server_data() {
 
 function provision_save_site_data() {
   if (!drush_get_error()) {
-    $config = new Provision_Config_Drushrc_Site(d()->name);
+    $data = d()->service('db')->fetch_site_credentials();
+    $config = new Provision_Config_Drushrc_Site(d()->name, $data);
     $config->write();
     provision_drupal_push_site();
   }

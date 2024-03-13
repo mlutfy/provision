@@ -868,6 +868,8 @@ function provision_prepare_environment() {
     $_SERVER['db_type'] = ($_SERVER['db_type'] == 'mysqli') ? 'mysql' : $_SERVER['db_type'];
   }
 
+  d()->service('db')->fetch_site_credentials();
+
   // Invoke provision_prepare_environment: Allow other scripts to react to the
   // preparation of the environment variables.
   drush_command_invoke_all('provision_prepare_environment');

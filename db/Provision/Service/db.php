@@ -150,7 +150,7 @@ class Provision_Service_db extends Provision_Service {
       return;
     }
 
-    if ( $this->database_exists($db_name) ) {
+    if ($this->database_exists($db_name)) {
       drush_log(dt("Dropping database @dbname", array('@dbname' => $db_name)), 'info');
       if (!$this->drop_database($db_name)) {
         drush_log(dt("Failed to drop database @dbname", array('@dbname' => $db_name)), 'warning');
@@ -317,11 +317,36 @@ class Provision_Service_db extends Provision_Service {
   }
 
   function fetch_site_credentials() {
-    $creds = array();
+    $creds = [];
+    $keys = ['db_type', 'db_port', 'db_user', 'db_name', 'db_host', 'db_passwd'];
 
-    $keys = array('db_type', 'db_port', 'db_user', 'db_name', 'db_host', 'db_passwd');
+    // [ML] SYMBIOTIC If the drush options are not set, do it ourselves
+    // drush_get_option is rather opaque, and maybe it would just be simpler to stop using it
+    if (!drush_get_option('db_name')) {
+      global $options;
+      require_once d()->site_path . '/drushrc.php';
+drush_log('db/Provision/Service/db.php: load ' . d()->site_path . '/drushrc.php', 'warning');
+      foreach ($keys as $key) {
+        if (!empty($options[$key])) {
+          drush_set_option($key, $options[$key]);
+          $creds[$key] = $options[$key];
+          $_SERVER[$key] = $options[$key];
+        }
+      }
+    }
+
+    // Ugly workaround because sometimes the data is in _SERVER but not elsewhere
+    if (empty($creds['db_name']) && !empty($_SERVER['db_name'])) {
+      foreach ($keys as $key) {
+        drush_set_option($key, $_SERVER[$key]);
+        $creds[$key] = $_SERVER[$key];
+      }
+    }
+
     foreach ($keys as $key) {
-      $creds[$key] = drush_get_option($key, '', 'site');
+      if (empty($creds[$key])) {
+        $creds[$key] = drush_get_option($key, '', 'site');
+      }
     }
 
     return $creds;
