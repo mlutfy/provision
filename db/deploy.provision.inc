@@ -38,13 +38,17 @@ function drush_db_post_provision_deploy() {
       _provision_recursive_delete($old);
       drush_log(dt("DEBUG MyQuick tmp_expim dir removed in drush_db_post_provision_deploy @var", array('@var' => $old)), 'info');
     }
+    provision_file()->chmod(d()->site_path, 0755);
     provision_file()->unlink($post_import_flag)
       ->succeed('Removed Post-DB-Import Flag-File in drush_db_post_provision_deploy')
       ->fail('Could not remove Post-DB-Import Flag-File in drush_db_post_provision_deploy');
+    provision_file()->chmod(d()->site_path, 0555);
   }
   else {
+    provision_file()->chmod(d()->site_path, 0755);
     provision_file()->unlink(d()->site_path . '/database.sql')
       ->succeed('Removed dump file @path after restoring from it')
       ->fail('Could not remove dump file @path', 'DRUSH_PERM_ERROR');
+    provision_file()->chmod(d()->site_path, 0555);
   }
 }

@@ -222,7 +222,7 @@ function provision_drush_command() {
       ),
     ),
     'allow-additional-options' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-restore'] = array(
@@ -233,7 +233,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-restore ~/backups/some_site.tar.gz' => 'Restore the site to the backup in ~/backups/some_site.tar.gz.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-deploy'] = array(
@@ -247,7 +247,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-deploy ~/backups/some_site.tar.gz' => 'Deploy the site as defined by the site Drush alias, from the backup in ~/backups/some_site.tar.gz.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-migrate'] = array(
@@ -274,7 +274,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-clone @new_site @platform_name' => 'Clone the original site to the new site on a platform',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-delete'] = array(
