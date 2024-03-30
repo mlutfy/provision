@@ -444,6 +444,10 @@ function _provision_drupal_create_directories($url = NULL) {
   // Allow other commands to add or alter the directories to be created,
   // chmod'd or chgrp'd.
   // TODO: Figure out a better way to do this.
+  // [ML] This does not seem necessary if we run the fix-permissions bash script
+  // then either Drupal or CiviCRM will not have problems creating the required directories
+  drush_log(dt('_provision_drupal_create_directories: creating directories...'), 'ok');
+  provision_file()->chmod(d()->site_path, 0755);
   drush_command_invoke_all_ref('provision_drupal_create_directories_alter', $mkdir, $url);
   drush_command_invoke_all_ref('provision_drupal_chgrp_directories_alter', $chgrp, $url);
   drush_command_invoke_all_ref('provision_drupal_chgrp_not_recursive_alter', $chgrp_not_recursive, $url);
@@ -471,6 +475,9 @@ function _provision_drupal_create_directories($url = NULL) {
         ->fail('Could not change permissions <code>@path</code> to @perm');
     }
   }
+
+  drush_log(dt('_provision_drupal_create_directories: done'), 'ok');
+  provision_file()->chmod(d()->site_path, 0555);
 }
 
 /**
