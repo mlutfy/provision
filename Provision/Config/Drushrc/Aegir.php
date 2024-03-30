@@ -18,6 +18,9 @@ class Provision_Config_Drushrc_Aegir extends Provision_Config_Drushrc {
   }
 
   function load_data() {
+    // SYMBIOTIC This isn't done by default, but required for hosting_get_features()
+    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
+
     // List Hosting Features and their enabled status.
     $features = hosting_get_features();
     foreach ($features as $name => $info) {
