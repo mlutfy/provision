@@ -459,6 +459,12 @@ function _scrub_object($input) {
  */
 function provision_backend_invoke($target, $command, $arguments = array(), $data = array(), $mode = 'GET') {
   $context = '@' . ltrim($target, '@');
+  // Help identify calls that might need to be converted
+  drush_log(dt('Invoking with provision_backend_invoke: drush !target !drush_command !arguments', [
+    '!target' => $context,
+    '!drush_command' => $command,
+    '!arguments' => implode(' ', $arguments)
+  ]), 'ok');
   return drush_invoke_process($context, $command, $arguments, $data, array('method' => $mode, 'integrate' => TRUE, 'dispatch-using-alias' => TRUE));
 }
 
