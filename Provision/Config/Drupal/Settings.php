@@ -15,6 +15,12 @@ class Provision_Config_Drupal_Settings extends Provision_Config {
   }
 
   function process() {
+    // Protect against mysterious loss of db credentials
+    if (empty($this->data['db_name'])) {
+      $data = d()->service('db')->fetch_site_credentials();
+      $this->data = array_merge($this->data, $data);
+    }
+
     $drupal_core_version = provision_get_drupal_core_version();
     if ($drupal_core_version && version_compare($drupal_core_version, 10, '>=')) {
       $this->template = 'provision_drupal_settings_10.tpl.php';
