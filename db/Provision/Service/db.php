@@ -325,7 +325,6 @@ class Provision_Service_db extends Provision_Service {
     if (!drush_get_option('db_name')) {
       global $options;
       require_once d()->site_path . '/drushrc.php';
-drush_log('db/Provision/Service/db.php: load ' . d()->site_path . '/drushrc.php', 'warning');
       foreach ($keys as $key) {
         if (!empty($options[$key])) {
           drush_set_option($key, $options[$key]);
