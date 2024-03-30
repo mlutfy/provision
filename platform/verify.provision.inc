@@ -429,11 +429,20 @@ function drush_provision_drupal_post_provision_verify() {
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
-    if (drush_drupal_major_version() < 12) {
+    $drupal_core_version = provision_get_drupal_core_version();
+
+    if ($drupal_core_version && version_compare($drupal_core_version, 8, '>=')) {
+      $command = "drush cr";
+      drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+      chdir(d()->site_path);
+      $output = system($command, $retval);
+      drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
+    }
+    else {
+      // @todo Run 'drush cc all' for d7?
       _provision_drupal_rebuild_caches();
     }
     drush_set_option('installed', TRUE, 'site');
-
     _provision_client_create_symlink();
     drush_include_engine('drupal', 'cron_key');
   }
