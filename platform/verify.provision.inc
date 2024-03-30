@@ -396,8 +396,8 @@ function drush_provision_drupal_pre_provision_verify() {
     // In cases where we just build the platform Drush would have cleared this value.
     // See Drush commit 3b74d40b1228f022464b92243c16127eb613c2df
     drush_set_context('DRUSH_SELECTED_DRUPAL_ROOT', d()->root);
-
-    drush_set_option('packages', _scrub_object(provision_drupal_system_map()), 'site');
+    // [ML] SYMBIOTIC Skipping this, which also means we do not manage platform packages in Aegir anymore
+    // drush_set_option('packages', _scrub_object(provision_drupal_system_map()), 'site');
     // This is the actual drupal provisioning requirements.
     _provision_drupal_create_directories();
     _provision_drupal_maintain_aliases();
