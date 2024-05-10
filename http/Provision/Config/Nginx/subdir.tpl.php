@@ -87,7 +87,7 @@ $subdir_dot = str_replace('/', '.', $subdir);
   // Nginx restart, so we need to use dummy placeholders to avoid affecting
   // other sites on the system if this site is broken.
   if (!$db_type || !$db_name || !$db_user || !$db_passwd || !$db_host) {
-    $db_type = 'mysqli';
+    $db_type = 'mysql';
     $db_name = 'none';
     $db_user = 'none';
     $db_passwd = 'none';
@@ -99,13 +99,7 @@ $subdir_dot = str_replace('/', '.', $subdir);
   // use this simple fallback to guarantee that empty db_port does not
   // break Nginx reload which results with downtime for the affected vhosts.
   if (!$db_port) {
-    $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
-    if (provision_file()->exists($ctrlf)->status()) {
-      $db_port = '6033';
-    }
-    else {
-      $db_port = $this->server->db_port ? $this->server->db_port : '3306';
-    }
+    $db_port = $this->server->db_port ? $this->server->db_port : '3306';
   }
 ?>
 #######################################################

@@ -156,6 +156,7 @@ function drush_provision_drupal_pre_provision_deploy_rollback() {
   }
 
   if (provision_file()->exists(drush_get_option('extract_path'))->status()) {
+    provision_file()->chmod(drush_get_option('extract_path'), 0755);
     _provision_recursive_delete(drush_get_option('extract_path'));
   }
 }

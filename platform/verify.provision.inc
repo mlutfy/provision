@@ -439,8 +439,11 @@ function drush_provision_drupal_post_provision_verify() {
       drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
     }
     else {
-      // @todo Run 'drush cc all' for d7?
-      _provision_drupal_rebuild_caches();
+      $command = "drush cc all";
+      drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+      chdir(d()->site_path);
+      $output = system($command, $retval);
+      drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
     }
     drush_set_option('installed', TRUE, 'site');
     _provision_client_create_symlink();
