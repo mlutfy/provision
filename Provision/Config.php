@@ -201,6 +201,11 @@ class Provision_Config {
         ->fail('Could not create directory @path.');
     }
 
+    // Change the permissions temporarily
+    if ($this->context_name == 'site') {
+      provision_file()->chmod(dirname($filename), 0755);
+    }
+
     $status = FALSE;
     if ($filename && is_writeable(dirname($filename))) {
       // manipulate data before passing to template.
@@ -231,6 +236,12 @@ class Provision_Config {
         }
       }
     }
+
+    // Change the permissions back
+    if ($this->context_name == 'site') {
+      provision_file()->chmod(dirname($filename), 0555);
+    }
+
     return $status;
   }
 

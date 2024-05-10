@@ -197,6 +197,9 @@ function drush_provision_hostmaster_install($site = NULL) {
   $aegir_db_host = drush_get_option('aegir_db_host');
   $aegir_db_grant_all_hosts = drush_get_option('aegir_db_grant_all_hosts');
 
+  // Make sure we can write in the directory during the installation
+  provision_file()->chmod($aegir_root . '/sites/' . $site, 0755);
+
   $server = '@server_master';
   $master_context = array(
     'context_type' => 'server',

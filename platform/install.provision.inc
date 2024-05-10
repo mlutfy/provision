@@ -88,6 +88,7 @@ function drush_provision_drupal_pre_provision_install_rollback() {
  * weird problems such as the multiple database connections don't confuse drupal.
  */
 function drush_provision_drupal_provision_install() {
+  provision_file()->chmod(d()->site_path, 0755, TRUE);
   // Requires at least the database settings to complete.
   provision_prepare_environment();
   _provision_drupal_create_settings_file();
@@ -97,7 +98,8 @@ function drush_provision_drupal_provision_install() {
   $drupal_core_version = provision_get_drupal_core_version();
   drush_log('provision_install Detected core ' . $drupal_core_version, 'ok');
 
-  if (version_compare($drupal_core_version, 10, '>=')) {
+  // Still somewhat experimental (works for D10, and hostmaster sort of, but not much tested otherwise)
+  if ($site_name == 'hostmaster' || version_compare($drupal_core_version, 10, '>=')) {
     drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
     chdir(d()->site_path);
     // @todo profile?
@@ -110,8 +112,20 @@ function drush_provision_drupal_provision_install() {
     $aegir_db_host = drush_get_option('db_host');
     $aegir_db_name = drush_get_option('db_name');
 
+    // Workaround because d7 complains about this address
+    if ($client_email == 'root@localhost') {
+      $client_email = 'root@' . gethostbyaddr(gethostbyname(gethostname()));
+    }
+    // And somehow for d7 hostmaster, we have this instead of the FQDN
+    if ($site_name == 'hostmaster') {
+      $site_name = gethostbyaddr(gethostbyname(gethostname()));
+    }
+
     $db = "mysql://$aegir_db_user:$aegir_db_pass@$aegir_db_host:$aegir_db_port/$aegir_db_name";
     $command = '../../../vendor/drush/drush/drush site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+    if (version_compare($drupal_core_version, 10, '<')) {
+      $command = 'drush -y site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+    }
     drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
     $output = system($command, $retval);
     drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
