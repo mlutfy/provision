@@ -13,7 +13,20 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   protected $has_port = TRUE;
 
   function default_port() {
-    return 3306;
+    $script_user = d('@server_master')->script_user;
+    if (!$script_user) {
+      $script_user = drush_get_option('script_user');
+    }
+    if (!$script_user && $server->script_user) {
+      $script_user = $server->script_user;
+    }
+    $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
+    if (provision_file()->exists($ctrlf)->status()) {
+      return 6033;
+    }
+    else {
+      return 3306;
+    }
   }
 
   function drop_database($name) {
@@ -56,11 +69,71 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   }
 
   function grant($name, $username, $password, $host = '') {
+    if (provision_file()->exists('/data/conf/clstr.cnf')->status()) {
+      $host = '%';
+    }
     $host = ($host) ? $host : '%';
 
     if ($host != "127.0.0.1") {
       $extra_host = "127.0.0.1";
       $this->grant_privileges($name, $username, $password, $extra_host);
+    }
+
+    // Support for ProxySQL integration
+    if ($name && $this->server->db_port == '6033') {
+      if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
+        include('/opt/tools/drush/proxysql_adm_pwd.inc');
+        $proxysqlc = "SELECT hostgroup_id,hostname,port,status FROM mysql_servers;";
+        $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+        drush_shell_exec($command);
+        if (preg_match("/Access denied for user 'admin'@'([^']*)'/", implode('', drush_shell_exec_output()), $match)) {
+          drush_log(dt("Failed to add @name to ProxySQL", array('@name' => $name)), 'warning');
+        }
+        elseif (preg_match("/Host '([^']*)' is not allowed to connect to/", implode('', drush_shell_exec_output()), $match)) {
+          drush_log(dt("Failed to add @name to ProxySQL", array('@name' => $name)), 'warning');
+        }
+        else {
+          $proxysqlc = "DELETE FROM mysql_users where username='" . $name . "';";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "INSERT INTO mysql_users (username,password,default_hostgroup) VALUES ('" . $name . "','" . $password . "',10);";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "LOAD MYSQL USERS TO RUNTIME;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "SAVE MYSQL USERS FROM RUNTIME;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "SAVE MYSQL USERS TO DISK;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "DELETE FROM mysql_query_rules where username='" . $name . "';";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "INSERT INTO mysql_query_rules (username,destination_hostgroup,active) values ('" . $name . "',10,1);";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "INSERT INTO mysql_query_rules (username,destination_hostgroup,active) values ('" . $name . "',11,1);";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "LOAD MYSQL QUERY RULES TO RUNTIME;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+
+          $proxysqlc = "SAVE MYSQL QUERY RULES TO DISK;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+        }
+      }
     }
 
     return $this->grant_privileges($name, $username, $password, $host);
@@ -97,6 +170,9 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   }
 
   function revoke($name, $username, $host = '') {
+    if (provision_file()->exists('/data/conf/clstr.cnf')->status()) {
+      $host = '%';
+    }
     $host = ($host) ? $host : '%';
     drush_command_invoke_all_ref('provision_db_username_alter', $username, '', 'revoke');
     $success = $this->query("REVOKE ALL PRIVILEGES ON `%s`.* FROM `%s`@`%s`", $name, $username, $host);
@@ -115,6 +191,50 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
       }
     }
     if (!$grant_found) {
+      // Support for ProxySQL integration
+      if ($name && $this->server->db_port == '6033') {
+        if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
+          include('/opt/tools/drush/proxysql_adm_pwd.inc');
+          $proxysqlc = "SELECT hostgroup_id,hostname,port,status FROM mysql_servers;";
+          $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+          drush_shell_exec($command);
+          if (preg_match("/Access denied for user 'admin'@'([^']*)'/", implode('', drush_shell_exec_output()), $match)) {
+            drush_log(dt("Failed to delete @name in ProxySQL", array('@name' => $name)), 'warning');
+          }
+          elseif (preg_match("/Host '([^']*)' is not allowed to connect to/", implode('', drush_shell_exec_output()), $match)) {
+            drush_log(dt("Failed to delete @name in ProxySQL", array('@name' => $name)), 'warning');
+          }
+          else {
+            $proxysqlc = "DELETE FROM mysql_users where username='" . $name . "';";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "LOAD MYSQL USERS TO RUNTIME;";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "SAVE MYSQL USERS FROM RUNTIME;";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "SAVE MYSQL USERS TO DISK;";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "DELETE FROM mysql_query_rules where username='" . $name . "';";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "LOAD MYSQL QUERY RULES TO RUNTIME;";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+
+            $proxysqlc = "SAVE MYSQL QUERY RULES TO DISK;";
+            $command = sprintf('mysql -u admin -h %s -P %s -p%s -e "' . $proxysqlc . '"', '127.0.0.1', '6032', $prxy_adm_paswd);
+            drush_shell_exec($command);
+          }
+        }
+      }
       $success = $this->query("DROP USER `%s`@`%s`", $username, $host) && $success;
     }
 
@@ -145,20 +265,122 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
 
 
   function import_dump($dump_file, $creds) {
+    if (empty($creds)) {
+      $creds = $this->generate_site_credentials();
+    }
     extract($creds);
+    drush_log(dt("DEBUG MyQuick import_dump mysql.php db_name first @var", array('@var' => $db_name)), 'info');
+    $mydumper_path = '/usr/local/bin/mydumper';
+    $myloader_path = '/usr/local/bin/myloader';
+    $script_user = d('@server_master')->script_user;
+    $aegir_root = d('@server_master')->aegir_root;
+    $backup_path = d('@server_master')->backup_path;
+    $oct_db_dirx = $backup_path . '/tmp_expim';
+    $pass_php_inc = $aegir_root . '/.' . $script_user . '.pass.php';
+    drush_log(dt("DEBUG MyQuick import_dump mysql.php pass_php_inc @var", array('@var' => $pass_php_inc)), 'info');
+    $enable_myquick = $aegir_root . '/static/control/MyQuick.info';
+    drush_log(dt("DEBUG MyQuick import_dump mysql.php enable_myquick @var", array('@var' => $enable_myquick)), 'info');
+    if (is_file($enable_myquick) && is_executable($myloader_path)) {
 
-    $cmd = sprintf("mysql --defaults-file=/dev/fd/3 %s", escapeshellcmd($db_name));
+      if (provision_file()->exists($pass_php_inc)->status()) {
+        include_once($pass_php_inc);
+      }
 
-    $success = $this->safe_shell_exec($cmd, $db_host, $db_user, $db_passwd, $dump_file);
+      if ($db_name) {
+        $mycnf = $this->generate_mycnf();
+        $oct_db_user = $db_user;
+        $oct_db_pass = $db_passwd;
+        $oct_db_host = $db_host;
+        $oct_db_port = $db_port;
 
-    drush_log(sprintf("Importing database using command: %s", $cmd));
+        if ($this->server->db_port == '6033') {
+          if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
+            include('/opt/tools/drush/proxysql_adm_pwd.inc');
+            if ($writer_node_ip) {
+              drush_log('Skip ProxySQL in import_dump', 'notice');
+              $oct_db_host = $writer_node_ip;
+              $oct_db_port = '3306';
+            }
+            else {
+              drush_log('Using ProxySQL in import_dump', 'notice');
+            }
+          }
+        }
+      }
+      else {
+        drush_log(dt("DEBUG MyQuick import_dump mysql.php FAIL no db_name @var", array('@var' => $db_name)), 'info');
+      }
 
-    if (!$success) {
-      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", array('%output' => $this->safe_shell_exec_output)));
+      if (!is_dir($oct_db_dirx)) {
+        drush_log(dt("DEBUG MyQuick import_dump mysql.php fail oct_db_dirx @var", array('@var' => $oct_db_dirx)), 'info');
+        drush_set_error('PROVISION_DB_IMPORT_FAILED', dt('Database import failed (dir: %dir)', array('%dir' => $oct_db_dirx)));
+      }
+
+      $threads = provision_count_cpus();
+      $threads = intval($threads / 4) + 1;
+      drush_log(dt("DEBUG MyQuick import_dump mysql.php db_name second @var", array('@var' => $db_name)), 'info');
+      drush_log(dt("DEBUG MyQuick import_dump mysql.php oct_db_user @var", array('@var' => $oct_db_user)), 'info');
+      drush_log(dt("DEBUG MyQuick import_dump mysql.php oct_db_pass @var", array('@var' => $oct_db_pass)), 'info');
+      drush_log(dt("DEBUG MyQuick import_dump mysql.php oct_db_host @var", array('@var' => $oct_db_host)), 'info');
+      drush_log(dt("DEBUG MyQuick import_dump mysql.php oct_db_port @var", array('@var' => $oct_db_port)), 'info');
+
+      // Create pre-db-import flag file.
+      $pre_import_flag = $backup_path . '/.pre_import_flag.pid';
+      $pre_import_flag_blank = "Starting Import \n";
+      $local_description = 'Adding Pre-DB-Import Flag-File import_dump mysql.php';
+      if (!provision_file()->exists($pre_import_flag)->status()) {
+        provision_file()->file_put_contents($pre_import_flag, $pre_import_flag_blank)
+      	->succeed('Generated blank ' . $local_description)
+      	->fail('Could not generate ' . $local_description);
+      }
+
+      if (is_dir($oct_db_dirx) &&
+        $db_name &&
+        $oct_db_user &&
+        $oct_db_pass &&
+        $oct_db_host &&
+        $oct_db_port) {
+        $command = sprintf($myloader_path . ' --database=' . $db_name . ' --host=' . $oct_db_host . ' --user=' . $oct_db_user . ' --password=' . $oct_db_pass . ' --port=' . $oct_db_port . ' --directory=' . $oct_db_dirx . ' --threads=' . $threads . ' --overwrite-tables --verbose=1');
+        drush_log(dt("DEBUG MyQuick import_dump mysql.php Cmd @var", array('@var' => $command)), 'info');
+        drush_shell_exec($command);
+
+        if (!$command) {
+          drush_set_error('PROVISION_DB_IMPORT_FAILED', dt('Database import failed (%command)', array('%command' => $command)));
+        }
+
+        // Delete pre-db-import flag file.
+        provision_file()->unlink($pre_import_flag)
+          ->succeed('Remove Pre-DB-Import Flag-File')
+          ->fail('Could not remove Pre-DB-Import Flag-File');
+
+		// Create post-db-import flag file.
+		$post_import_flag = $backup_path . '/.post_import_flag.pid';
+		$post_import_flag_blank = "Post-DB-Import \n";
+		$local_description = 'Adding Post-DB-Import Flag-File import_dump mysql.php';
+		if (!provision_file()->exists($post_import_flag)->status()) {
+		  provision_file()->file_put_contents($post_import_flag, $post_import_flag_blank)
+			->succeed('Generated blank ' . $local_description)
+			->fail('Could not generate ' . $local_description);
+		}
+      }
+    }
+    else {
+      $cmd = sprintf("mysql --defaults-file=/dev/fd/3 --force %s", escapeshellcmd($db_name));
+
+      $success = $this->safe_shell_exec($cmd, $db_host, $db_user, $db_passwd, $dump_file);
+
+      drush_log(sprintf("Importing database using command: %s", $cmd));
+
+      if (!$success) {
+        drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", array('%output' => $this->safe_shell_exec_output)));
+      }
     }
   }
 
   function grant_host(Provision_Context_server $server) {
+    // [ML] Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. ERROR at line 1: Unknown command '\('.
+    return $this->server->remote_host;
+
     $user = 'intntnllyInvalid';
     drush_command_invoke_all_ref('provision_db_username_alter', $user, $this->server->remote_host);
 
@@ -185,6 +407,7 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
       return drush_set_error('PROVISION_DB_CONNECT_FAIL', dt('Cannot resolve database server hostname (%host): %msg', array('%host' => $match[1], '%msg' => join("\n", drush_shell_exec_output()))));
     }
     else {
+      drush_log("DEBUG GRANT: $command", 'ok');
       return drush_set_error('PROVISION_DB_CONNECT_FAIL', dt('Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. %msg', array('%msg' => join("\n", drush_shell_exec_output()))));
     }
   }
@@ -296,13 +519,16 @@ port=%s
     // '--set-gtid-purged=OFF' option to suppress the restoration of GTIDs.  GTIDs were added in MySQL version 5.6
     if (drush_get_option('provision_mysqldump_suppress_gtid_restore', FALSE)) {
       $gtid_option = '--set-gtid-purged=OFF';
-    } // if
+    }
     else {
       $gtid_option = '';
-    } // else
+    }
+
+    // Make sure that the drush options are correctly set
+    $creds = $this->fetch_site_credentials();
 
     // Mixed copy-paste of drush_shell_exec and provision_shell_exec.
-    $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --single-transaction --quick --no-autocommit %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));
+    $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --no-tablespaces --no-autocommit --skip-add-locks --single-transaction --quick --hex-blob %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));
 
     // Fail if db file already exists.
     $dump_file = fopen(d()->site_path . '/database.sql', 'x');
@@ -339,12 +565,13 @@ port=%s
       else {
         drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not run mysqldump for backups'));
       }
+
+      $dump_size_too_small = filesize(d()->site_path . '/database.sql') < 1024;
+      if (($dump_size_too_small) && !drush_get_option('force', FALSE)) {
+        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (error: %msg)', array('%msg' => $err)));
+      }
     }
 
-    $dump_size_too_small = filesize(d()->site_path . '/database.sql') < 1024;
-    if (($dump_size_too_small) && !drush_get_option('force', FALSE)) {
-      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (error: %msg)', array('%msg' => $err)));
-    }
     // Reset the umask to normal permissions.
     umask(0022);
   }
@@ -410,7 +637,7 @@ port=%s
     // Ensure that the MySQL server supports large prefixes and utf8mb4.
     $dbname = uniqid(drush_get_option('aegir_db_prefix', 'site_'));
     $this->create_database($dbname);
-    $success = $this->query("CREATE TABLE `%s`.`drupal_utf8mb4_test` (id VARCHAR(255), PRIMARY KEY(id(255))) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci ROW_FORMAT=DYNAMIC", $dbname);
+    $success = $this->query("CREATE TABLE `%s`.`drupal_utf8mb4_test` (id VARCHAR(255), PRIMARY KEY(id(255))) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC", $dbname);
     if (!$this->drop_database($dbname)) {
       drush_log(dt("Failed to drop database @dbname", array('@dbname' => $dbname)), 'warning');
     }

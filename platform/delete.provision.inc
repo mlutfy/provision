@@ -10,7 +10,7 @@ function drush_provision_drupal_pre_provision_delete($backup_file = NULL) {
       drush_set_error('PROVISION_DELETE_BACKUP_NAME_RELATIVE', dt('The passed backup name is a relative path, storing that in the site directory which is going to be deleted is probably not intended. Try an absolute name, or no name to let one be generated.'));
     }
     else {
-      drush_log(dt('Invoking drush provision-backup...'));
+      drush_log(dt('Invoking drush provision-backup in drush_provision_drupal_pre_provision_delete'));
       drush_invoke("provision-backup", $backup_file);
       drush_unset_option('force', 'process');
     }
@@ -26,7 +26,7 @@ function drush_provision_drupal_provision_delete() {
   if (d()->type === 'site') {
 
     // Add platform root auto-discovery to avoid confusing
-    // Composer based D8 codebase root with Drupal real root.
+    // Composer based D8+ codebase root with Drupal real root.
     d()->root = provision_auto_fix_platform_root(d()->root);
 
     // Re-set the ROOT PATH for Drush.
@@ -44,6 +44,9 @@ function drush_provision_drupal_provision_delete() {
     // Do not automatically save the drushrc at the end of the command.
     drush_set_option('provision_save_config', false);
 
+    // It will not be possible to delete otherwise
+    provision_file()->chmod(d()->site_path, 0755);
+
     _provision_recursive_delete(d()->site_path);
     // we remove the aliases even if redirection is enabled as a precaution
     // if redirection is enabled, keep silent about errors
@@ -57,7 +60,7 @@ function drush_provision_drupal_provision_delete() {
   elseif (d()->type === 'platform') {
 
     // Add platform root auto-discovery to avoid confusing
-    // Composer based D8 codebase root with Drupal real root.
+    // Composer based D8+ codebase root with Drupal real root.
     d()->root = provision_auto_fix_platform_root(d()->root);
 
     // Make sure if we are within parent codebase directory

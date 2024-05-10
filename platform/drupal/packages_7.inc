@@ -25,7 +25,7 @@ function _provision_drupal_find_themes($scope, $key = '') {
       $files[$name]->name = $files[$name]->info['name'];
     }
     if (empty($files[$name]->info['engine'])) {
-      $filename = dirname($files[$name]->filename) .'/'. $files[$name]->name .'.theme';
+      $filename = dirname($files[$name]->filename) . '/' . $files[$name]->name . '.theme';
       if (file_exists($filename)) {
         $files[$name]->owner = $filename;
         $files[$name]->prefix = $name;
@@ -153,7 +153,9 @@ function _provision_drupal_system_map() {
 
   $profile = drush_get_option('profile');
   $packages['profiles'][$profile] = $profiles[$profile];
-  $packages['profiles'][$profile]->status = 1;
+  if (isset($profile) && isset($packages['profiles'][$profile])) {
+    $packages['profiles'][$profile]->status = 1;
+  }
 
   foreach (_provision_system_query("module") as $module) {
     // Skip profiles, these have a separate section above.
@@ -181,7 +183,7 @@ function _provision_drupal_system_map() {
     $module->version = $module->info['version'];
   }
 
-  drush_log(dt("Found !count modules", array('!count' => sizeof($packages['modules']))));
+  drush_log(dt("Found !count modules", array('!count' => count($packages['modules']))), 'info');
 
   // XXX: mostly a copy-paste from above
   foreach (_provision_system_query("theme") as $theme) {
@@ -201,7 +203,7 @@ function _provision_drupal_system_map() {
     $packages['themes'][$theme->name] = $theme;
     $theme->version = $theme->info['version'];
   }
-  drush_log(dt("Found !count themes", array('!count' => sizeof($packages['themes']))));
+  drush_log(dt("Found !count themes", array('!count' => count($packages['themes']))), 'info');
   return $packages;
 }
 
@@ -262,7 +264,7 @@ function _provision_find_profiles() {
 
 
       $profiles[$name] = $profile;
-      drush_log(dt('Found install profile %name', array('%name' => $name)));
+      drush_log(dt('Found install profile %name', array('%name' => $name)), 'info');
     }
   }
   return $profiles;

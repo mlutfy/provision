@@ -52,7 +52,7 @@ if (isset($_SERVER['db_name'])) {
     'port' => (string) $_SERVER['db_port'],
 <?php if ($utf8mb4_is_configurable && $utf8mb4_is_supported): ?>
     'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_general_ci',
+    'collation' => 'utf8mb4_unicode_ci',
 <?php endif; ?>
   );
   $db_url['default'] = $_SERVER['db_type'] . '://' . $_SERVER['db_user'] . ':' . $_SERVER['db_passwd'] . '@' . $_SERVER['db_host'] . ':' . $_SERVER['db_port'] . '/' . $_SERVER['db_name'];
@@ -103,7 +103,7 @@ if (isset($_SERVER['db_name'])) {
     'port' => "<?php print $this->creds['db_port']; ?>",
 <?php if ($utf8mb4_is_configurable && $utf8mb4_is_supported): ?>
     'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_general_ci',
+    'collation' => 'utf8mb4_unicode_ci',
 <?php endif; ?>
    );
   $db_url['default'] = "<?php print strtr("%db_type://%db_user:%db_passwd@%db_host:%db_port/%db_name", array(
@@ -120,7 +120,7 @@ if (isset($_SERVER['db_name'])) {
   $install_profile = "<?php print $this->profile ?>";
 
   /**
-  * PHP settings:
+  * PHP settings: (managed in BOA via site and platform level INI files)
   *
   * To see what PHP settings are possible, including whether they can
   * be set at runtime (ie., when ini_set() occurs), read the PHP
@@ -129,10 +129,10 @@ if (isset($_SERVER['db_name'])) {
   * settings are used there. Settings defined here should not be
   * duplicated there so as to avoid conflict issues.
   */
-  ini_set('session.gc_probability', 1);
-  ini_set('session.gc_divisor', 100);
-  ini_set('session.gc_maxlifetime', 200000);
-  ini_set('session.cookie_lifetime', 2000000);
+  //ini_set('session.gc_probability', 1);
+  //ini_set('session.gc_divisor', 100);
+  //ini_set('session.gc_maxlifetime', 200000);
+  //ini_set('session.cookie_lifetime', 2000000);
 
   /**
   * Set the umask so that new directories created by Drupal have the correct permissions

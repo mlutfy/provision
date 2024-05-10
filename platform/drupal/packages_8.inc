@@ -33,7 +33,7 @@ function _provision_drupal_find_themes($scope, $key = '') {
 
     // If version is missing, or if version is set to 'VERSION', use "drush_drupal_version()".
     // The VERSION constant used in Git checkouts. Also appears when using DEV modules in composer.
-    if (empty($files[$name]->info['version']) || !isset($files[$name]->version) || $files[$name]->version == 'VERSION') {
+    if (empty($files[$name]->info['version']) || $files[$name]->info['version'] == 'VERSION') {
       $files[$name]->version = drush_drupal_version();
     }
     else {
@@ -76,13 +76,15 @@ function _provision_drupal_system_map() {
 
   $profile = drush_get_option('profile');
   $packages['profiles'][$profile] = $profiles[$profile];
-  $packages['profiles'][$profile]->status = 1;
+  if (isset($profile) && isset($packages['profiles'][$profile])) {
+    $packages['profiles'][$profile]->status = 1;
+  }
 
   $packages['modules'] = _provision_system_query('module');
-  drush_log(dt("Found !count modules", array('!count' => count($packages['modules']))));
+  drush_log(dt("Found !count modules", array('!count' => count($packages['modules']))), 'info');
 
   $packages['themes'] = _provision_system_query('theme');
-  drush_log(dt("Found !count themes", array('!count' => count($packages['themes']))));
+  drush_log(dt("Found !count themes", array('!count' => count($packages['themes']))), 'info');
 
   return $packages;
 }
@@ -113,8 +115,14 @@ function _provision_system_query($type) {
     // $extensions_data = system_rebuild_module_data();
     // system_rebuild_module_data() is deprecated in D8 and removed in D9
     // https://www.drupal.org/project/drupal/issues/2926068
-    $extensions_rset = \Drupal::service('extension.list.module')->reset();
-    $extensions_data = \Drupal::service('extension.list.module')->getList();
+    if (version_compare(drush_drupal_version(), '8.7.0', '>=') ||
+      !function_exists('system_rebuild_module_data')) {
+      $extensions_rset = \Drupal::service('extension.list.module')->reset();
+      $extensions_data = \Drupal::service('extension.list.module')->getList();
+    }
+    else {
+      $extensions_data = system_rebuild_module_data();
+    }
   }
 
   foreach ($extensions_data as $name => $extension_data) {
@@ -182,7 +190,7 @@ function _provision_find_profiles() {
         $profile->info['languages'] = _provision_find_profile_languages($profile->path);
 
         $profiles[basename($profile->path)] = $profile;
-        drush_log(dt('Found install profile %name', array('%name' => $profile->name)));
+        drush_log(dt('Found install profile %name', array('%name' => $profile->name)), 'info');
       }
     }
   }

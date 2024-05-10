@@ -5,52 +5,74 @@
 #######################################################
 
 <?php
-$script_user = drush_get_option('script_user');
+$script_user = d('@server_master')->script_user;
+if (!$script_user) {
+  $script_user = drush_get_option('script_user');
+}
 if (!$script_user && $server->script_user) {
   $script_user = $server->script_user;
 }
 
-$aegir_root = drush_get_option('aegir_root');
+$aegir_root = d('@server_master')->aegir_root;
+if (!$aegir_root) {
+  $aegir_root = drush_get_option('aegir_root');
+}
 if (!$aegir_root && $server->aegir_root) {
   $aegir_root = $server->aegir_root;
 }
 
-$nginx_config_mode = drush_get_option('nginx_config_mode');
+$nginx_config_mode = d('@server_master')->nginx_config_mode;
+if (!$nginx_config_mode) {
+  $nginx_config_mode = drush_get_option('nginx_config_mode');
+}
 if (!$nginx_config_mode && $server->nginx_config_mode) {
   $nginx_config_mode = $server->nginx_config_mode;
 }
 
-$phpfpm_mode = drush_get_option('phpfpm_mode');
+$phpfpm_mode = d('@server_master')->phpfpm_mode;
+if (!$phpfpm_mode) {
+  $phpfpm_mode = drush_get_option('phpfpm_mode');
+}
 if (!$phpfpm_mode && $server->phpfpm_mode) {
   $phpfpm_mode = $server->phpfpm_mode;
 }
 
-$nginx_is_modern = drush_get_option('nginx_is_modern');
+$nginx_is_modern = d('@server_master')->nginx_is_modern;
+if (!$nginx_is_modern) {
+  $nginx_is_modern = drush_get_option('nginx_is_modern');
+}
 if (!$nginx_is_modern && $server->nginx_is_modern) {
   $nginx_is_modern = $server->nginx_is_modern;
 }
 
-$nginx_has_etag = drush_get_option('nginx_has_etag');
+$nginx_has_etag = d('@server_master')->nginx_has_etag;
+if (!$nginx_has_etag) {
+  $nginx_has_etag = drush_get_option('nginx_has_etag');
+}
 if (!$nginx_has_etag && $server->nginx_has_etag) {
   $nginx_has_etag = $server->nginx_has_etag;
 }
 
-$nginx_has_http2 = drush_get_option('nginx_has_http2');
+$nginx_has_http2 = d('@server_master')->nginx_has_http2;
+if (!$nginx_has_http2) {
+  $nginx_has_http2 = drush_get_option('nginx_has_http2');
+}
 if (!$nginx_has_http2 && $server->nginx_has_http2) {
   $nginx_has_http2 = $server->nginx_has_http2;
 }
 
-$nginx_has_gzip = drush_get_option('nginx_has_gzip');
+$nginx_has_gzip = d('@server_master')->nginx_has_gzip;
+if (!$nginx_has_gzip) {
+  $nginx_has_gzip = drush_get_option('nginx_has_gzip');
+}
 if (!$nginx_has_gzip && $server->nginx_has_gzip) {
   $nginx_has_gzip = $server->nginx_has_gzip;
 }
 
-$nginx_has_upload_progress = drush_get_option('nginx_has_upload_progress');
-if (!$nginx_has_upload_progress && $server->nginx_has_upload_progress) {
-  $nginx_has_upload_progress = $server->nginx_has_upload_progress;
+$satellite_mode = d('@server_master')->satellite_mode;
+if (!$satellite_mode) {
+  $satellite_mode = drush_get_option('satellite_mode');
 }
-
-$satellite_mode = drush_get_option('satellite_mode');
 if (!$satellite_mode && $server->satellite_mode) {
   $satellite_mode = $server->satellite_mode;
 }
@@ -66,9 +88,6 @@ if ($nginx_has_gzip) {
   print "  gzip_static       on;\n";
 }
 
-if ($nginx_has_upload_progress) {
-  print "  upload_progress uploads 1m;\n";
-}
 ?>
 
 <?php if ($nginx_config_mode == 'extended'): ?>
@@ -105,13 +124,13 @@ if ($nginx_has_upload_progress) {
   client_body_buffer_size        64k;
   client_header_buffer_size      32k;
 <?php if ($satellite_mode == 'boa'): ?>
-  client_max_body_size          350m;
+  client_max_body_size          395m;
 <?php endif; ?>
   connection_pool_size           256;
   fastcgi_buffer_size           512k;
   fastcgi_buffers             512 8k;
   fastcgi_temp_file_write_size  512k;
-  large_client_header_buffers 32 32k;
+  large_client_header_buffers 32 64k;
 <?php if ($satellite_mode == 'boa'): ?>
   map_hash_bucket_size           192;
 <?php endif; ?>
@@ -163,8 +182,8 @@ if ($nginx_has_upload_progress) {
 
 <?php if ($satellite_mode == 'boa'): ?>
  ## SSL protocols, ciphers and settings
-  ssl_protocols TLSv1.1 TLSv1.2;
-  ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA;
+  ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+  ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES256-CCM:DHE-RSA-AES256-CCM8:DHE-RSA-AES128-CCM:DHE-RSA-AES128-CCM8:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA:!ECDHE-ECDSA-AES256-SHA384:!ECDHE-ECDSA-AES128-SHA256;
   ssl_prefer_server_ciphers  on;
 
   ## GeoIP support
@@ -298,6 +317,7 @@ map $args $is_denied {
 
 server {
   listen       *:<?php print $http_port; ?>;
+  #listen       [::]:<?php print $http_port; ?>;
   server_name  _;
   location / {
 <?php if ($satellite_mode == 'boa'): ?>
@@ -316,6 +336,7 @@ server {
 <?php if ($satellite_mode == 'boa'): ?>
 server {
   listen       *:<?php print $http_port; ?>;
+  #listen       [::]:<?php print $http_port; ?>;
   server_name  127.0.0.1;
   location /nginx_status {
     stub_status on;

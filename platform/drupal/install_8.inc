@@ -45,7 +45,7 @@ function install_send_welcome_mail($url, $account, $language, $client_email, $on
       drush_log(dt('Sent welcome mail to @client', array('@client' => $client_email)), 'message');
     }
     else {
-      drush_log(dt('Could not send welcome mail to @client', array('@client' => $client_email)));
+      drush_log(dt('Could not send welcome mail to @client', array('@client' => $client_email)), 'info');
     }
   }
 }
@@ -161,6 +161,16 @@ function install_main() {
     ->set('path.private', "sites/$url/private/files")
     ->set('path.temporary', "sites/$url/private/temp")
     ->save();
+
+  // Add platform root auto-discovery to avoid confusing
+  // Composer based D8 codebase root with Drupal real root.
+  d()->root = provision_auto_fix_platform_root(d()->root);
+
+  // Disable Redis integration until module is installed
+  $redisCtrl = d()->root . '/sites/' . d()->uri . '/.redisOff';
+  if (!provision_file()->exists($redisCtrl)->status()) {
+    provision_file()->create_dir($redisCtrl, dt("Redis tmp off ctrl dir created"), 0711);
+  }
 
   $account = \Drupal\user\Entity\User::load(1);
 

@@ -22,7 +22,7 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
   public $ssl_enabled = TRUE;
 
   function cloaked_db_creds() {
-    return TRUE;
+    return FALSE;
   }
 
   /**
@@ -42,8 +42,7 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
     $this->server->setProperty('nginx_has_etag', FALSE);
     $this->server->setProperty('nginx_has_http2', FALSE);
     $this->server->setProperty('nginx_has_gzip', FALSE);
-    $this->server->setProperty('nginx_has_upload_progress', FALSE);
-    $this->server->setProperty('provision_db_cloaking', TRUE);
+    $this->server->setProperty('provision_db_cloaking', FALSE);
     $this->server->setProperty('phpfpm_mode', 'port');
     $this->server->setProperty('satellite_mode', 'vanilla');
   }
@@ -67,18 +66,17 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
     $this->server->nginx_is_modern = preg_match("/nginx\/1\.((1\.(8|9|(1[0-9]+)))|((2|3|4|5|6|7|8|9|[1-9][0-9]+)\.))/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_etag = preg_match("/nginx\/1\.([12][0-9]|[3]\.([12][0-9]|[3-9]))/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_http2 = preg_match("/http_v2_module/", implode('', drush_shell_exec_output()), $match);
-    $this->server->nginx_has_upload_progress = preg_match("/upload/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_gzip = preg_match("/http_gzip_static_module/", implode('', drush_shell_exec_output()), $match);
 
     // Use basic nginx configuration if this control file exists.
     $nginx_config_mode_file = "/etc/nginx/basic_nginx.conf";
     if (provision_file()->exists($nginx_config_mode_file)->status()) {
       $this->server->nginx_config_mode = 'basic';
-      drush_log(dt('Basic Nginx Config Active -SAVE- YES control file found @path.', array('@path' => $nginx_config_mode_file)));
+      drush_log(dt('Basic Nginx Config Active -SAVE- YES control file found @path.', array('@path' => $nginx_config_mode_file)), 'info');
     }
     else {
       $this->server->nginx_config_mode = 'extended';
-      drush_log(dt('Extended Nginx Config Active -SAVE- NO control file found @path.', array('@path' => $nginx_config_mode_file)));
+      drush_log(dt('Extended Nginx Config Active -SAVE- NO control file found @path.', array('@path' => $nginx_config_mode_file)), 'info');
     }
 
     // Check if there is php-fpm listening on unix socket, otherwise use port 9000 to connect
@@ -87,11 +85,11 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
     // Check if there is BOA specific global.inc file to enable extra Nginx locations
     if (provision_file()->exists('/data/conf/global.inc')->status()) {
       $this->server->satellite_mode = 'boa';
-      drush_log(dt('BOA mode detected -SAVE- YES file found @path.', array('@path' => '/data/conf/global.inc')));
+      drush_log(dt('BOA mode detected -SAVE- YES file found @path.', array('@path' => '/data/conf/global.inc')), 'info');
     }
     else {
       $this->server->satellite_mode = 'vanilla';
-      drush_log(dt('Vanilla mode detected -SAVE- NO file found @path.', array('@path' => '/data/conf/global.inc')));
+      drush_log(dt('Vanilla mode detected -SAVE- NO file found @path.', array('@path' => '/data/conf/global.inc')), 'info');
     }
   }
 
@@ -114,18 +112,17 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
     $this->server->nginx_is_modern = preg_match("/nginx\/1\.((1\.(8|9|(1[0-9]+)))|((2|3|4|5|6|7|8|9|[1-9][0-9]+)\.))/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_etag = preg_match("/nginx\/1\.([12][0-9]|[3]\.([12][0-9]|[3-9]))/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_http2 = preg_match("/http_v2_module/", implode('', drush_shell_exec_output()), $match);
-    $this->server->nginx_has_upload_progress = preg_match("/upload/", implode('', drush_shell_exec_output()), $match);
     $this->server->nginx_has_gzip = preg_match("/http_gzip_static_module/", implode('', drush_shell_exec_output()), $match);
 
     // Use basic nginx configuration if this control file exists.
     $nginx_config_mode_file = "/etc/nginx/basic_nginx.conf";
     if (provision_file()->exists($nginx_config_mode_file)->status()) {
       $this->server->nginx_config_mode = 'basic';
-      drush_log(dt('Basic Nginx Config Active -VERIFY- YES control file found @path.', array('@path' => $nginx_config_mode_file)));
+      drush_log(dt('Basic Nginx Config Active -VERIFY- YES control file found @path.', array('@path' => $nginx_config_mode_file)), 'info');
     }
     else {
       $this->server->nginx_config_mode = 'extended';
-      drush_log(dt('Extended Nginx Config Active -VERIFY- NO control file found @path.', array('@path' => $nginx_config_mode_file)));
+      drush_log(dt('Extended Nginx Config Active -VERIFY- NO control file found @path.', array('@path' => $nginx_config_mode_file)), 'info');
     }
 
     // Check if there is php-fpm listening on unix socket, otherwise use port 9000 to connect
@@ -134,11 +131,11 @@ class Provision_Service_http_nginx_ssl extends Provision_Service_http_ssl {
     // Check if there is BOA specific global.inc file to enable extra Nginx locations
     if (provision_file()->exists('/data/conf/global.inc')->status()) {
       $this->server->satellite_mode = 'boa';
-      drush_log(dt('BOA mode detected -VERIFY- YES file found @path.', array('@path' => '/data/conf/global.inc')));
+      drush_log(dt('BOA mode detected -VERIFY- YES file found @path.', array('@path' => '/data/conf/global.inc')), 'info');
     }
     else {
       $this->server->satellite_mode = 'vanilla';
-      drush_log(dt('Vanilla mode detected -VERIFY- NO file found @path.', array('@path' => '/data/conf/global.inc')));
+      drush_log(dt('Vanilla mode detected -VERIFY- NO file found @path.', array('@path' => '/data/conf/global.inc')), 'info');
     }
 
     // Call the parent at the end. it will restart the server when it finishes.

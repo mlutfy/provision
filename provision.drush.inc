@@ -116,7 +116,7 @@ function provision_drush_command() {
       'force-reinstall' => dt('Delete the sites database and files, before attempting to install.'),
     ),
     'allow-additional-options' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-install-backend'] = array(
@@ -126,7 +126,7 @@ function provision_drush_command() {
     ),
     'allow-additional-options' => TRUE,
     'hidden' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_SITE
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-import'] = array(
@@ -138,7 +138,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-import' => 'Import the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-backup'] = array(
@@ -151,7 +151,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-backup' => 'Back up the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-enable'] = array(
@@ -160,7 +160,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-enable' => 'Enable the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
   );
   $items['provision-disable'] = array(
     'arguments' => array('domain.com' => dt('The domain of the site to disable (only if disabled).')),
@@ -169,7 +169,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-disable' => 'Disable the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
   );
 
   $items['provision-lock'] = array(
@@ -184,6 +184,22 @@ function provision_drush_command() {
     'description' => 'Unlock a platform so that sites can be provisioned on it.',
     'examples' => array(
       'drush @platform provision-unlock' => 'Unlock the platform as defined by the platform Drush alias generated with provision-save.',
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+  );
+
+  $items['provision-dlock'] = array(
+    'description' => 'Lock a platform local Drush.',
+    'examples' => array(
+      'drush @platform provision-dlock' => 'Lock the platform local Drush as defined by the platform Drush alias generated with provision-save.',
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+  );
+
+  $items['provision-dunlock'] = array(
+    'description' => 'Unlock a platform local Drush.',
+    'examples' => array(
+      'drush @platform provision-dunlock' => 'Unlock the platform local Drush as defined by the platform Drush alias generated with provision-save.',
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
   );
@@ -206,7 +222,7 @@ function provision_drush_command() {
       ),
     ),
     'allow-additional-options' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-restore'] = array(
@@ -217,7 +233,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-restore ~/backups/some_site.tar.gz' => 'Restore the site to the backup in ~/backups/some_site.tar.gz.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-deploy'] = array(
@@ -231,7 +247,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-deploy ~/backups/some_site.tar.gz' => 'Deploy the site as defined by the site Drush alias, from the backup in ~/backups/some_site.tar.gz.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-migrate'] = array(
@@ -258,7 +274,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-clone @new_site @platform_name' => 'Clone the original site to the new site on a platform',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-delete'] = array(
@@ -269,7 +285,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-delete' => 'Delete the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-login-reset'] = array(
@@ -278,19 +294,18 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-login-reset' => 'Generate a one-time login reset URL for the site as defined by the site Drush alias generated with provision-save.',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-backup-delete'] = array(
     'description' => 'Delete a backup file.',
     'arguments' => array('backup-file' => dt('The backup file to delete. This will be a gzipped tarball.')),
-		'required-arguments' => TRUE,
+    'required-arguments' => TRUE,
     'examples' => array(
       'drush @site provision-backup-delete /path/to/site_backup.tgz' => 'Delete a backup of this site as defined by the site Drush alias generated with provision-save.',
     ),
     'allow-additional-options' => TRUE,
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH
-
   );
 
   $items['hostmaster-migrate'] = array(

@@ -134,7 +134,7 @@ function provision_is_local_host($host) {
 
 /**
  * Add platform root auto-discovery to avoid confusing
- * Composer based D8 codebase root with Drupal real root.
+ * Composer based D8+ codebase root with Drupal real root.
  */
 function provision_auto_fix_platform_root($isroot) {
 
@@ -210,7 +210,8 @@ function provision_save_server_data() {
 
 function provision_save_site_data() {
   if (!drush_get_error()) {
-    $config = new Provision_Config_Drushrc_Site(d()->name);
+    $data = d()->service('db')->fetch_site_credentials();
+    $config = new Provision_Config_Drushrc_Site(d()->name, $data);
     $config->write();
     provision_drupal_push_site();
   }
@@ -299,7 +300,7 @@ function _provision_file_check_location($source, $directory = '') {
   }
   else {
     // This file does not yet exist
-    $source = realpath(dirname($source)) .'/'. basename($source);
+    $source = realpath(dirname($source)) . '/' . basename($source);
   }
   $directory = realpath($directory);
   if ($directory && strpos($source, $directory) !== 0) {
@@ -440,7 +441,7 @@ function _scrub_object($input) {
 
 /**
  * Execute a command against a specific context object.
- * 
+ *
  * @param $target
  *   the context to operate on, @ prefix is optional.
  * @param $command
@@ -456,16 +457,22 @@ function _scrub_object($input) {
  */
 function provision_backend_invoke($target, $command, $arguments = array(), $data = array(), $mode = 'GET') {
   $context = '@' . ltrim($target, '@');
+  // Help identify calls that might need to be converted
+  drush_log(dt('Invoking with provision_backend_invoke: drush !target !drush_command !arguments', [
+    '!target' => $context,
+    '!drush_command' => $command,
+    '!arguments' => implode(' ', $arguments)
+  ]), 'ok');
   return drush_invoke_process($context, $command, $arguments, $data, array('method' => $mode, 'integrate' => TRUE, 'dispatch-using-alias' => TRUE));
 }
 
 /**
  * Run a command, sending output to drush logs in real time.
- * 
+ *
  * The Symfony\Component\Process\Process Object is used to run this command.
  * After implementing provision_process(), you can get the Process result object
  * via drush context:
- * 
+ *
  *   $process = drush_get_context('provision_process_result');
  *   print $process->getExitCode();
  *
@@ -539,6 +546,25 @@ function provision_process($command, $cwd = null, $label = 'Process', $env = arr
     }
     return $process->getErrorOutput();
   }
+}
+
+/**
+ * For Drupal 8/9/10
+ */
+function provision_get_drupal_core_version() {
+  $core_path = d()->root . '/core/lib/Drupal.php';
+
+  if (file_exists($core_path)) {
+    $file_contents = file_get_contents($core_path);
+    preg_match('/const VERSION = \'(.*?)\';/', $file_contents, $matches);
+
+    if (!empty($matches[1])) {
+      $drupal_version = $matches[1];
+      return $drupal_version;
+    }
+  }
+
+  return NULL;
 }
 
 /**

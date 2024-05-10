@@ -166,13 +166,21 @@ We are making the following assumptions:
  */
 function drush_provision_pre_hostmaster_migrate($site, $platform) {
   // we ignore errors here through integrate = FALSE
-  provision_backend_invoke(drush_get_option('site_name'), 'hosting-pause', array(), array('#integrate' => FALSE));
+  // provision_backend_invoke(drush_get_option('site_name'), 'hosting-pause', array(), array('#integrate' => FALSE));
 }
 
 function drush_provision_hostmaster_migrate($site, $platform) {
   // See: https://www.drupal.org/node/2762701.
   $platform_version = provision_backend_invoke(drush_get_option('site_name'), 'status', array(), array('fields' => 'drupal-version', 'field-labels' => 0));
+  drush_log(dt("Debug trim platform_version @name", array('@name' => trim($platform_version['output']))), 'debug');
+  drush_log(dt("Debug platform_version @path: @id", array('@path' => $platform, '@id' => $platform_version)), 'debug');
   $major_version_upgrade = version_compare('7.0', trim($platform_version['output'])) > 0 ? TRUE : FALSE;
+
+  //
+  // Disable PHP errors/warnings silencing temporarily
+  //
+  $major_version_upgrade = FALSE;
+
   if ($major_version_upgrade) {
     drush_log('Detected major version upgrade. Disabling error-reporting.', 'warning');
     $local_settings_file = d('@hostmaster')->site_path . '/local.settings.php';
@@ -217,6 +225,7 @@ function drush_provision_post_hostmaster_migrate($site, $platform) {
   ));
   // We need to re-verify @server_master via frontend to re-generate
   // its drush alias and to update Nginx configuration files.
-  provision_backend_invoke('@hostmaster', 'hosting-task', array(@server_master, 'verify'), array('force' => TRUE));
+  $server = '@server_master';
+  provision_backend_invoke('@hostmaster', 'hosting-task', array("$server", 'verify'), array('force' => TRUE));
 }
 

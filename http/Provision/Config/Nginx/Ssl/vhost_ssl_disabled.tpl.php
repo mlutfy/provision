@@ -20,15 +20,18 @@ else {
 }
 
 if ($satellite_mode == 'boa') {
-  $ssl_listen_ip = "*";
+  $ssl_listen_ipv4 = "*";
+  $ssl_listen_ipv6 = "[::]";
 }
 else {
-  $ssl_listen_ip = $ip_address;
+  $ssl_listen_ipv4 = $ip_address;
+  $ssl_listen_ipv6 = "[::]";
 }
 ?>
 
 server {
-  listen       <?php print "{$ssl_listen_ip}:{$http_ssl_port} {$ssl_args}"; ?>;
+  listen       <?php print "{$ssl_listen_ipv4}:{$http_ssl_port} {$ssl_args}"; ?>;
+  #listen       <?php print "{$ssl_listen_ipv6}:{$http_ssl_port} {$ssl_args}"; ?>;
   server_name  <?php print $this->uri . ' ' . implode(' ', str_replace('/', '.', $this->aliases)); ?>;
 <?php if ($satellite_mode == 'boa'): ?>
   root         /var/www/nginx-default;
@@ -37,11 +40,10 @@ server {
 <?php else: ?>
   return 302 <?php print $this->platform->server->web_disable_url . '/' . $this->uri ?>;
 <?php endif; ?>
-  ssl                        on;
 <?php if ($satellite_mode == 'boa'): ?>
   ssl_stapling               on;
   ssl_stapling_verify        on;
-  resolver 8.8.8.8 8.8.4.4 valid=300s;
+  resolver 1.1.1.1 1.0.0.1 valid=300s;
   resolver_timeout           5s;
   ssl_dhparam                /etc/ssl/private/nginx-wild-ssl.dhp;
 <?php endif; ?>

@@ -17,10 +17,7 @@
         "symfony/process": "^3.4"
     },
     "config": {
-        "sort-packages": true,
-        "platform": {
-            "php": "7.0.8"
-        }
+        "sort-packages": true
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
@@ -30,8 +27,5 @@
                 "Provision"
             ]
         }
-    },
-    "require-dev": {
-        "overtrue/phplint": "^1.2"
     }
 }

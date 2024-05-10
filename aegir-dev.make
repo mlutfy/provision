@@ -1,3 +1,6 @@
+; Aegir Provision makefile
+;
+
 core = 7.x
 api = 2
 

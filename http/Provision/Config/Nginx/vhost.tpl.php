@@ -1,7 +1,10 @@
 <?php $this->root = provision_auto_fix_platform_root($this->root); ?>
 
 <?php
-$script_user = drush_get_option('script_user');
+$script_user = d('@server_master')->script_user;
+if (!$script_user) {
+  $script_user = drush_get_option('script_user');
+}
 if (!$script_user && $server->script_user) {
   $script_user = $server->script_user;
 }
@@ -11,7 +14,7 @@ if ($this->redirection) {
   $satellite_mode = d('@server_master')->satellite_mode;
   // Redirect all aliases to the main http url using separate vhosts blocks to avoid if{} in Nginx.
   foreach ($this->aliases as $alias_url) {
-    if (!preg_match("/\.(?:nodns)\./", $alias_url)) {
+    if (!preg_match("/\.(?:nodns|dev|devel)\./", $alias_url)) {
       print "\n";
       print "# alias redirection virtual host\n";
       print "server {\n";
@@ -34,6 +37,7 @@ if ($this->redirection) {
         print "  ### Allow access to letsencrypt.org ACME challenges directory.\n";
         print "  ###\n";
         print "  location ^~ /.well-known/acme-challenge {\n";
+        print "    allow all;\n";
         print "    alias {$aegir_root}/tools/le/.acme-challenges;\n";
         print "    try_files \$uri 404;\n";
         print "  }\n";
@@ -105,10 +109,8 @@ if ($this->redirection || !$this->redirection) {
 
 server {
   include       fastcgi_params;
-
   # Block https://httpoxy.org/ attacks.
   fastcgi_param HTTP_PROXY "";
-
   fastcgi_param MAIN_SITE_NAME <?php print $this->uri; ?>;
   set $main_site_name "<?php print $this->uri; ?>";
   fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
@@ -128,7 +130,7 @@ server {
 ?>
   fastcgi_param db_type   <?php print urlencode($db_type); ?>;
   fastcgi_param db_name   <?php print urlencode($db_name); ?>;
-  fastcgi_param db_user   <?php print urlencode($db_user); ?>;
+  fastcgi_param db_user   <?php print implode('@', array_map('urlencode', explode('@', $db_user))); ?>;
   fastcgi_param db_passwd <?php print urlencode($db_passwd); ?>;
   fastcgi_param db_host   <?php print urlencode($db_host); ?>;
 <?php
@@ -136,11 +138,18 @@ server {
   // use this simple fallback to guarantee that empty db_port does not
   // break Nginx reload which results with downtime for the affected vhosts.
   if (!$db_port) {
-    $db_port = $this->server->db_port ? $this->server->db_port : '3306';
+    $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
+    if (provision_file()->exists($ctrlf)->status()) {
+      $db_port = '6033';
+    }
+    else {
+      $db_port = $this->server->db_port ? $this->server->db_port : '3306';
+    }
   }
 ?>
   fastcgi_param db_port   <?php print urlencode($db_port); ?>;
   listen        *:<?php print $http_port; ?>;
+  #listen        [::]:<?php print $http_port; ?>;
   server_name   <?php
     // this is the main vhost, so we need to put the redirection
     // target as the hostname (if it exists) and not the original URL
@@ -150,9 +159,16 @@ server {
     } else {
       print $this->uri;
     }
+    if (is_array($this->aliases)) {
+      foreach ($this->aliases as $alias_url) {
+        if (trim($alias_url) && preg_match("/\.(?:dev|devel)\./", $alias_url)) {
+          print " " . str_replace('/', '.', $alias_url);
+        }
+      }
+    }
     if (!$this->redirection && is_array($this->aliases)) {
       foreach ($this->aliases as $alias_url) {
-        if (trim($alias_url)) {
+        if (trim($alias_url) && !preg_match("/\.(?:dev|devel)\./", $alias_url)) {
           print " " . str_replace('/', '.', $alias_url);
         }
       }

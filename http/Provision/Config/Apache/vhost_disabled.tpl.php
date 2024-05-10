@@ -2,14 +2,14 @@
 
 <VirtualHost *:<?php print $http_port; ?>>
     <?php if ($this->site_mail) : ?>
-      ServerAdmin <?php  print $this->site_mail; ?> 
+      ServerAdmin <?php  print $this->site_mail; ?>
     <?php endif;?>
-    DocumentRoot <?php print $this->root; ?> 
-    
+    DocumentRoot <?php print $this->root; ?>
+
     ServerName <?php print $this->uri; ?>
 
     <?php
-    if (sizeof($this->aliases)) {
+    if (count($this->aliases)) {
       foreach ($this->aliases as $alias) {
         print "  ServerAlias " . $alias . "\n";
       }

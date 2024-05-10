@@ -5,3 +5,6 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
+# Vim swap files
+*.swp
+*.swo

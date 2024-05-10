@@ -1,20 +1,32 @@
 <?php
-$script_user = drush_get_option('script_user');
+$script_user = d('@server_master')->script_user;
+if (!$script_user) {
+  $script_user = drush_get_option('script_user');
+}
 if (!$script_user && $server->script_user) {
   $script_user = $server->script_user;
 }
 
-$aegir_root = drush_get_option('aegir_root');
+$aegir_root = d('@server_master')->aegir_root;
+if (!$aegir_root) {
+  $aegir_root = drush_get_option('aegir_root');
+}
 if (!$aegir_root && $server->aegir_root) {
   $aegir_root = $server->aegir_root;
 }
 
-$nginx_config_mode = drush_get_option('nginx_config_mode');
+$nginx_config_mode = d('@server_master')->nginx_config_mode;
+if (!$nginx_config_mode) {
+  $nginx_config_mode = drush_get_option('nginx_config_mode');
+}
 if (!$nginx_config_mode && $server->nginx_config_mode) {
   $nginx_config_mode = $server->nginx_config_mode;
 }
 
-$phpfpm_mode = drush_get_option('phpfpm_mode');
+$phpfpm_mode = d('@server_master')->phpfpm_mode;
+if (!$phpfpm_mode) {
+  $phpfpm_mode = drush_get_option('phpfpm_mode');
+}
 if (!$phpfpm_mode && $server->phpfpm_mode) {
   $phpfpm_mode = $server->phpfpm_mode;
 }
@@ -23,32 +35,42 @@ if (!$phpfpm_mode && $server->phpfpm_mode) {
 // See Provision_Service_http_nginx_ssl for details.
 $phpfpm_socket_path = Provision_Service_http_nginx::getPhpFpmSocketPath();
 
-$nginx_is_modern = drush_get_option('nginx_is_modern');
+$nginx_is_modern = d('@server_master')->nginx_is_modern;
+if (!$nginx_is_modern) {
+  $nginx_is_modern = drush_get_option('nginx_is_modern');
+}
 if (!$nginx_is_modern && $server->nginx_is_modern) {
   $nginx_is_modern = $server->nginx_is_modern;
 }
 
-$nginx_has_etag = drush_get_option('nginx_has_etag');
+$nginx_has_etag = d('@server_master')->nginx_has_etag;
+if (!$nginx_has_etag) {
+  $nginx_has_etag = drush_get_option('nginx_has_etag');
+}
 if (!$nginx_has_etag && $server->nginx_has_etag) {
   $nginx_has_etag = $server->nginx_has_etag;
 }
 
-$nginx_has_http2 = drush_get_option('nginx_has_http2');
+$nginx_has_http2 = d('@server_master')->nginx_has_http2;
+if (!$nginx_has_http2) {
+  $nginx_has_http2 = drush_get_option('nginx_has_http2');
+}
 if (!$nginx_has_http2 && $server->nginx_has_http2) {
   $nginx_has_http2 = $server->nginx_has_http2;
 }
 
-$nginx_has_gzip = drush_get_option('nginx_has_gzip');
+$nginx_has_gzip = d('@server_master')->nginx_has_gzip;
+if (!$nginx_has_gzip) {
+  $nginx_has_gzip = drush_get_option('nginx_has_gzip');
+}
 if (!$nginx_has_gzip && $server->nginx_has_gzip) {
   $nginx_has_gzip = $server->nginx_has_gzip;
 }
 
-$nginx_has_upload_progress = drush_get_option('nginx_has_upload_progress');
-if (!$nginx_has_upload_progress && $server->nginx_has_upload_progress) {
-  $nginx_has_upload_progress = $server->nginx_has_upload_progress;
+$satellite_mode = d('@server_master')->satellite_mode;
+if (!$satellite_mode) {
+  $satellite_mode = drush_get_option('satellite_mode');
 }
-
-$satellite_mode = drush_get_option('satellite_mode');
 if (!$satellite_mode && $server->satellite_mode) {
   $satellite_mode = $server->satellite_mode;
 }
@@ -119,7 +141,7 @@ include /data/conf/nginx_high_load.c*;
 ###
 ### Deny not compatible request methods without 405 response.
 ###
-if ( $request_method !~ ^(?:GET|HEAD|POST|PUT|DELETE|OPTIONS)$ ) {
+if ( $request_method !~ ^(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$ ) {
   return 403;
 }
 
@@ -140,7 +162,7 @@ add_header X-XSS-Protection "1; mode=block";
 
 <?php if ($satellite_mode == 'boa'): ?>
 ###
-### Force clean URLs for Drupal 8.
+### Force clean URLs for Drupal 8+.
 ###
 rewrite ^/index.php/(.*)$ $scheme://$host/$1 permanent;
 
@@ -199,7 +221,7 @@ location ^~ /cdn/farfuture/ {
   gzip_http_version 1.1;
   if_modified_since exact;
   set $nocache_details "Skip";
-  location ~* ^/cdn/farfuture/.+\.(?:css|js|jpe?g|gif|png|ico|bmp|svg|swf|pdf|docx?|xlsx?|pptx?|tiff?|txt|rtf|class|otf|ttf|woff2?|eot|less)$ {
+  location ~* ^/cdn/farfuture/.+\.(?:css|js|jpe?g|gif|png|ico|webp|bmp|svg|swf|pdf|docx?|xlsx?|pptx?|tiff?|txt|rtf|class|otf|ttf|woff2?|eot|less)$ {
     expires max;
     add_header X-Header "CDN Far Future Generator 1.0";
     add_header Cache-Control "no-transform, public";
@@ -322,7 +344,7 @@ location = /cron.php {
 
 ###
 ### Allow local access to support wget method in Aegir settings
-### for running sites cron in Drupal 8.
+### for running sites cron in Drupal 8+.
 ###
 location ^~ /cron/ {
 <?php if ($satellite_mode == 'boa'): ?>
@@ -359,23 +381,6 @@ location ^~ /js/ {
     rewrite ^/(.*)$ /js.php?q=$1 last;
   }
 }
-
-<?php if ($nginx_has_upload_progress): ?>
-###
-### Upload progress support.
-### https://drupal.org/project/filefield_nginx_progress
-### http://github.com/masterzen/nginx-upload-progress-module
-###
-location ~ (?<upload_form_uri>.*)/x-progress-id:(?<upload_id>\d*) {
-  access_log off;
-  rewrite ^ $upload_form_uri?X-Progress-ID=$upload_id;
-}
-location ^~ /progress {
-  access_log off;
-  upload_progress_json_output;
-  report_uploads uploads;
-}
-<?php endif; ?>
 
 <?php if ($satellite_mode == 'boa'): ?>
 ###
@@ -451,6 +456,14 @@ location ^~ /admin/config/development/performance/redis {
   access_log off;
   return 301 $scheme://$host/admin/config/development/performance;
 }
+
+###
+### Deny cache details display.
+###
+location ^~ /admin/reports/redis {
+  access_log off;
+  return 301 $scheme://$host/admin/reports;
+}
 <?php endif; ?>
 
 ###
@@ -466,26 +479,26 @@ location ^~ /admin {
 }
 
 ###
-### Do not log /civicrm* requests, but protect from bots.
+### Don't log and avoid caching /civicrm* requests, but protect from bots.
 ###
 location ^~ /civicrm {
   if ( $is_bot ) {
     return 403;
   }
   access_log off;
-  ### set $nocache_details "Skip";
+  set $nocache_details "Skip";
   try_files $uri @drupal;
 }
 
 ###
-### Do not log /civicrm* requests, but protect from bots on a multi-lingual site
+### Avoid caching /civicrm* requests, but protect from bots on a multi-lingual site
 ###
 location ~* ^/\w\w/civicrm {
   if ( $is_bot ) {
     return 403;
   }
   access_log off;
-  ### set $nocache_details "Skip";
+  set $nocache_details "Skip";
   try_files $uri @drupal;
 }
 
@@ -508,7 +521,7 @@ location ^~ /audio/download {
 ###
 ### Deny listed requests for security reasons.
 ###
-location ~* (\.(?:git.*|htaccess|engine|config|inc|ini|info|install|make|module|profile|test|pl|po|sh|.*sql|theme|tpl(\.php)?|xtmpl)(~|\.sw[op]|\.bak|\.orig|\.save)?$|^(\..*|Entries.*|Repository|Root|Tag|Template|composer\.(json|lock))$|^#.*#$|\.php(~|\.sw[op]|\.bak|\.orig\.save))$ {
+location ~* (\.(?:git.*|htaccess|engine|config|inc|ini|info|install|make|module|profile|test|pl|po|sh|.*sql|theme|twig|tpl(\.php)?|xtmpl|yml)(~|\.sw[op]|\.bak|\.orig|\.save)?$|^(\..*|Entries.*|Repository|Root|Tag|Template|composer\.(json|lock))$|^#.*#$|\.php(~|\.sw[op]|\.bak|\.orig\.save))$ {
   access_log off;
   return 404;
 }
@@ -614,6 +627,38 @@ location ~* /(?:.+)/files/styles/adaptive/(?:.+)$ {
 <?php endif; ?>
 
 ###
+### The css aggregation for Drupal 10.1 and newer.
+###
+location ~* /sites/.*/files/css/(.*)$ {
+  access_log off;
+  log_not_found off;
+  expires    30d;
+  add_header Access-Control-Allow-Origin *;
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+<?php if ($nginx_config_mode == 'extended'): ?>
+  set $nocache_details "Skip";
+<?php endif; ?>
+  try_files  /sites/$main_site_name/files/css/$1 $uri @drupal;
+}
+
+###
+### The js aggregation for Drupal 10.1 and newer.
+###
+location ~* /sites/.*/files/js/(.*)$ {
+  access_log off;
+  log_not_found off;
+  expires    30d;
+  add_header Access-Control-Allow-Origin *;
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+<?php if ($nginx_config_mode == 'extended'): ?>
+  set $nocache_details "Skip";
+<?php endif; ?>
+  try_files  /sites/$main_site_name/files/js/$1 $uri @drupal;
+}
+
+###
 ### The files/styles support.
 ###
 location ~* /sites/.*/files/styles/(.*)$ {
@@ -686,7 +731,7 @@ location ~* ^/sites/.*/files/backup_migrate/ {
 }
 
 ###
-### Deny direct access to config files in Drupal 8.
+### Deny direct access to config files in Drupal 8+.
 ###
 location ~* ^/sites/.*/files/config_.* {
   access_log off;
@@ -822,6 +867,18 @@ location ~* \.(?:js|htc)$ {
 }
 
 ###
+### Deny listed requests for security reasons.
+###
+location = /composer.json {
+  access_log off;
+  return 404;
+}
+location = /composer.lock {
+  access_log off;
+  return 404;
+}
+
+###
 ### Support for dynamic .json requests.
 ###
 location ~* \.json$ {
@@ -897,6 +954,34 @@ location ^~ /files/ {
 <?php endif; ?>
 
   ###
+  ### Sub-location to support files/css with short URIs.
+  ###
+  location ~* /files/css/(.*)$ {
+    access_log off;
+    log_not_found off;
+    expires    30d;
+<?php if ($nginx_config_mode == 'extended'): ?>
+    set $nocache_details "Skip";
+<?php endif; ?>
+    rewrite  ^/files/(.*)$  /sites/$main_site_name/files/$1 last;
+    try_files  /sites/$main_site_name/files/css/$1 $uri @drupal;
+  }
+
+  ###
+  ### Sub-location to support files/js with short URIs.
+  ###
+  location ~* /files/js/(.*)$ {
+    access_log off;
+    log_not_found off;
+    expires    30d;
+<?php if ($nginx_config_mode == 'extended'): ?>
+    set $nocache_details "Skip";
+<?php endif; ?>
+    rewrite  ^/files/(.*)$  /sites/$main_site_name/files/$1 last;
+    try_files  /sites/$main_site_name/files/js/$1 $uri @drupal;
+  }
+
+  ###
   ### Sub-location to support files/styles with short URIs.
   ###
   location ~* /files/styles/(.*)$ {
@@ -928,7 +1013,7 @@ location ^~ /files/ {
     try_files  /sites/$main_site_name/files/imagecache/$1 $uri @drupal;
   }
 
-  location ~* ^.+\.(?:pdf|jpe?g|gif|png|ico|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|avi|mpe?g|mov|wmv|mp3|ogg|ogv|wav|midi|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa|css|js)$ {
+  location ~* ^.+\.(?:pdf|jpe?g|gif|png|ico|webp|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|avi|mpe?g|mov|wmv|mp3|ogg|ogv|wav|midi|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa|css|js)$ {
     expires       30d;
     access_log    off;
     log_not_found off;
@@ -946,7 +1031,7 @@ location ^~ /files/ {
 ### Map /downloads/ shortcut early to avoid overrides in other locations.
 ###
 location ^~ /downloads/ {
-  location ~* ^.+\.(?:pdf|jpe?g|gif|png|ico|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|avi|mpe?g|mov|wmv|mp3|ogg|ogv|wav|midi|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa)$ {
+  location ~* ^.+\.(?:pdf|jpe?g|gif|png|ico|webp|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|avi|mpe?g|mov|wmv|mp3|ogg|ogv|wav|midi|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa)$ {
     expires       30d;
     access_log    off;
     log_not_found off;
@@ -967,7 +1052,7 @@ location ^~ /downloads/ {
 ### Serve & no-log static files & images directly,
 ### without all standard drupal rewrites, php-fpm etc.
 ###
-location ~* ^.+\.(?:jpe?g|gif|png|ico|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|mp3|wav|midi)$ {
+location ~* ^.+\.(?:jpe?g|gif|png|ico|webp|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rtf|vcard|vcf|cgi|bat|pl|dll|class|otf|ttf|woff2?|eot|less|mp3|wav|midi)$ {
   expires       30d;
   access_log    off;
   log_not_found off;
@@ -983,7 +1068,7 @@ location ~* ^.+\.(?:jpe?g|gif|png|ico|bmp|svg|swf|docx?|xlsx?|pptx?|tiff?|txt|rt
 ### Serve bigger media/static/archive files directly,
 ### without all standard drupal rewrites, php-fpm etc.
 ###
-location ~* ^.+\.(?:avi|mpe?g|mov|wmv|ogg|ogv|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa)$ {
+location ~* ^.+\.(?:avi|mpe?g|mov|wmv|ogg|ogv|webm|zip|tar|t?gz|rar|dmg|exe|apk|pxl|ipa)$ {
   expires     30d;
   access_log    off;
   log_not_found off;
@@ -1079,7 +1164,7 @@ location ~* /(?:modules|libraries)/(?:contrib/)?(?:ad|tinybrowser|f?ckeditor|tin
 ###
 ### Deny crawlers and never cache known AJAX requests.
 ###
-location ~* /(?:ahah|ajax|batch|autocomplete|done|progress/|x-progress-id|js/.*) {
+location ~* /(?:ahah|ajax|batch|autocomplete|progress/|x-progress-id|js/.*) {
   if ( $is_bot ) {
     return 403;
   }
@@ -1332,17 +1417,23 @@ location @cache {
 ### Send all not cached requests to drupal with clean URLs support.
 ###
 location @drupal {
+
+  ###
+  ### Detect Drupal core variant
+  ###
   set $core_detected "Legacy";
   set $location_detected "Nowhere";
-  ###
-  ### Detect
-  ###
+
   if ( -e $document_root/web.config ) {
     set $core_detected "Regular";
   }
   if ( -e $document_root/core ) {
     set $core_detected "Modern";
   }
+
+  ###
+  ### Drupal core specific location switch
+  ###
   error_page 402 = @legacy;
   if ( $core_detected = Legacy ) {
     return 402;
@@ -1355,11 +1446,12 @@ location @drupal {
   if ( $core_detected = Modern ) {
     return 418;
   }
+
   ###
-  ### Fallback
+  ### Fallback to regular / D7 style rewrite
   ###
   set $location_detected "Fallback";
-  rewrite ^ /index.php?$query_string last;
+  rewrite ^ /index.php?$query_string? last;
 }
 
 ###
@@ -1375,11 +1467,11 @@ location @legacy {
 ###
 location @regular {
   set $location_detected "Regular";
-  rewrite ^ /index.php?$query_string last;
+  rewrite ^ /index.php?$query_string? last;
 }
 
 ###
-### Special location for Drupal 8.
+### Special location for Drupal 8+.
 ###
 location @modern {
   set $location_detected "Modern";
@@ -1421,11 +1513,26 @@ location = /index.php {
 <?php else: ?>
   fastcgi_pass  unix:<?php print $phpfpm_socket_path; ?>;
 <?php endif; ?>
-<?php if ($nginx_has_upload_progress): ?>
-  track_uploads uploads 60s; ### required for upload progress
-<?php endif; ?>
   ###
-  ### Use Nginx cache for all visitors.
+  ### Detect supported no-cache exceptions
+  ###
+  if ( $request_method = POST ) {
+    set $nocache_details "Method";
+  }
+  if ( $args ~* "nocache=1" ) {
+    set $nocache_details "Args";
+  }
+  if ( $sent_http_x_force_nocache = "YES" ) {
+    set $nocache_details "Skip";
+  }
+  if ( $http_cookie ~* "NoCacheID" ) {
+    set $nocache_details "AegirCookie";
+  }
+  if ( $cache_uid ) {
+    set $nocache_details "DrupalCookie";
+  }
+  ###
+  ### Use Nginx cache for all visitors by default.
   ###
   set $nocache "";
   if ( $nocache_details ~ (?:AegirCookie|Args|Skip) ) {
@@ -1479,9 +1586,9 @@ location ~* ^/(?:index|cron|boost_stats|update|authorize|xmlrpc)\.php$ {
 
 <?php if ($nginx_config_mode == 'extended'): ?>
 ###
-### Allow access to /authorize.php and /update.php only for logged in admin user.
+### Allow access to /update.php only for logged in admin user.
 ###
-location ~* ^/(?:core/)?(?:authorize|update)\.php$ {
+location ~ ^/update.php {
   error_page 418 = @allowupdate;
   if ( $cache_uid ) {
     return 418;
@@ -1490,12 +1597,45 @@ location ~* ^/(?:core/)?(?:authorize|update)\.php$ {
 }
 
 ###
-### Internal location for /authorize.php and /update.php restricted access.
+### Allow access to /authorize.php only for logged in admin user.
+###
+location ~ ^/authorize.php {
+  error_page 418 = @allowauthorize;
+  if ( $cache_uid ) {
+    return 418;
+  }
+  return 404;
+}
+
+###
+### Internal location for /update.php restricted access.
 ###
 location @allowupdate {
-  limit_conn   limreq 88;
-  access_log   off;
-  try_files    $uri =404; ### check for existence of php file first
+  fastcgi_split_path_info ^(.+\.php)(/.+)$;
+  fastcgi_index update.php;
+  fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+  fastcgi_intercept_errors on;
+  include fastcgi_params;
+  limit_conn   limreq 8;
+<?php if ($satellite_mode == 'boa'): ?>
+  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
+<?php elseif ($phpfpm_mode == 'port'): ?>
+  fastcgi_pass 127.0.0.1:9000;
+<?php else: ?>
+  fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
+<?php endif; ?>
+}
+
+###
+### Internal location for /authorize.php and restricted access.
+###
+location @allowauthorize {
+  fastcgi_split_path_info ^(.+\.php)(/.+)$;
+  fastcgi_index authorize.php;
+  fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+  fastcgi_intercept_errors on;
+  include fastcgi_params;
+  limit_conn   limreq 8;
 <?php if ($satellite_mode == 'boa'): ?>
   fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
 <?php elseif ($phpfpm_mode == 'port'): ?>

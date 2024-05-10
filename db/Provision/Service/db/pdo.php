@@ -9,11 +9,28 @@ class Provision_Service_db_pdo extends Provision_Service_db {
 
   function init_server() {
     parent::init_server();
-    $this->dsn = sprintf("%s:host=%s", $this->PDO_type,  $this->creds['host']);
 
+    $this->dsn = sprintf("%s:host=%s", $this->PDO_type,  $this->creds['host']);
     if ($this->has_port) {
       $this->dsn = "{$this->dsn};port={$this->server->db_port}";
     }
+
+    if ($this->server->db_port == '6033') {
+      if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
+        include('/opt/tools/drush/proxysql_adm_pwd.inc');
+        if ($writer_node_ip) {
+          drush_log('Skip ProxySQL in Provision_Service_db_pdo', 'notice');
+          $this->dsn = sprintf("%s:host=%s", $this->PDO_type,  $writer_node_ip);
+          $this->dsn = "{$this->dsn};port=3306";
+        }
+        else {
+          drush_log('Using ProxySQL in Provision_Service_db_pdo', 'notice');
+        }
+      }
+    }
+
+    drush_log('DSN in Provision_Service_db_pdo', 'notice');
+    drush_log($this->dsn, 'notice');
   }
 
   function connect() {
@@ -38,7 +55,7 @@ class Provision_Service_db_pdo extends Provision_Service_db {
   }
 
   function close() {
-    $this->conn = null;
+    $this->conn = NULL;
   }
 
   function query($query) {
@@ -50,17 +67,22 @@ class Provision_Service_db_pdo extends Provision_Service_db {
     $this->ensure_connected();
     $this->query_callback($args, TRUE);
     $query = preg_replace_callback(PROVISION_QUERY_REGEXP, array($this, 'query_callback'), $query);
-    
+
     try {
       $result = $this->conn->query($query);
     }
     catch (PDOException $e) {
       drush_log($e->getMessage(), 'warning');
       return FALSE;
-    } 
+    }
+
+    if (!$result) {
+      $error = [];
+      list($error['@sql_error'], $error['@driver_error'], $error['@error_message']) = $this->conn->errorInfo();
+      drush_log(dt('Database query returned: @sql_error[@driver_error]: @error_message', $error), 'notice');
+    }
 
     return $result;
-
   }
 
   function query_callback($match, $init = FALSE) {
@@ -84,19 +106,23 @@ class Provision_Service_db_pdo extends Provision_Service_db {
     }
 
   }
-  
+
   function database_exists($name) {
     $dsn = $this->dsn . ';dbname=' . $name;
     $options = [];
     drush_command_invoke_all_ref('provision_db_options_alter', $options, $dsn);
+    $user = isset($this->creds['user']) ? $this->creds['user'] : '';
+    $pass = isset($this->creds['pass']) ? $this->creds['pass'] : '';
     try {
       // Try to connect to the DB to test if it exists.
-      $conn = new PDO($dsn, $this->creds['user'], $this->creds['pass'], $options);
+      $conn = new PDO($dsn, $user, $pass, $options);
       // Free the $conn memory.
       $conn = NULL;
       return TRUE;
     }
     catch (PDOException $e) {
+      drush_log('PDOException in database_exists', 'notice');
+      drush_log($e->getMessage(), 'notice');
       return FALSE;
     }
   }

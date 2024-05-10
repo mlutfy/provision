@@ -1,6 +1,6 @@
 <?php $this->root = provision_auto_fix_platform_root($this->root); ?>
 
-<?php if ($this->ssl_enabled && $this->ssl_key && $this->ssl_cert_ok) : ?>
+<?php if ($this->ssl_enabled && $this->ssl_key) : ?>
 
   <VirtualHost <?php print "{$ip_address}:{$http_ssl_port}"; ?>>
   <?php if ($this->site_mail) : ?>
@@ -47,7 +47,7 @@ if (!$aegir_root && $server->aegir_root) {
   <?php endif; ?>
 
 <?php
-if (sizeof($this->aliases)) {
+if (count($this->aliases)) {
   foreach ($this->aliases as $alias) {
     print "  ServerAlias " . $alias . "\n";
   }

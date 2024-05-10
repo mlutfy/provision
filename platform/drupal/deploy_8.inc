@@ -19,6 +19,9 @@ $old_url = drush_get_option('old_uri');
 if ($new_url != $old_url) {
   $url_changed  = TRUE;
 }
+else {
+  $url_changed  = FALSE;
+}
 
 if ($url_changed) {
   _provision_platform_drupal_deploy_8_replace($old_url, $new_url);

@@ -19,6 +19,9 @@ $old_url = drush_get_option('old_uri');
 if ($new_url != $old_url) {
   $url_changed  = TRUE;
 }
+else {
+  $url_changed  = FALSE;
+}
 
 if ($url_changed) {
   _provision_platform_drupal_deploy_7_replace($old_url, $new_url);
@@ -49,7 +52,9 @@ function _provision_platform_drupal_deploy_7_replace($old_url, $new_url) {
     db_query("UPDATE {block_custom} SET body     = REPLACE(body,     :old, :new)", $replace_abs_patterns);
     db_query("UPDATE {block_custom} SET body     = REPLACE(body,     :old, :new)", $replace_patterns);
   }
-  db_query("UPDATE {system}       SET filename = REPLACE(filename, :old, :new)", $replace_patterns);
+  if (!file_exists(DRUPAL_ROOT . '/core/includes/drupal.inc')) {
+    db_query("UPDATE {system}       SET filename = REPLACE(filename, :old, :new)", $replace_patterns);
+  }
 
   if (function_exists('field_info_field_map')) {
     $field_map = field_info_field_map();

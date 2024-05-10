@@ -56,10 +56,106 @@ function provision_drupal_drush_exit() {
   if (preg_match("/^provision-/", $command[0]) && drush_get_option('provision_save_config', TRUE)) {
 
     // Add platform root auto-discovery to avoid confusing
-    // Composer based D8 codebase root with Drupal real root.
+    // Composer based D8+ codebase root with Drupal real root.
     d()->root = provision_auto_fix_platform_root(d()->root);
 
     if (d()->type === 'site') {
+      if (preg_match("/^provision-login-reset/", $command[0])) {
+        // Make site and platform directories world writable temporarily,
+        // until the next site verify, but only if apps module and
+        // control file both exist.
+        $ctrl_modules_apps = d()->root . '/sites/all/modules/apps-allow.info';
+        if (provision_file()->exists($ctrl_modules_apps)->status()) {
+          $profile = drush_get_option('profile');
+          $site_modules_apps = d()->site_path . '/modules/apps/apps.module';
+          $allp_modules_apps = d()->root . '/sites/all/modules/apps/apps.module';
+          $dist_modules_apps = d()->root . '/profiles/' . $profile . '/modules/apps/apps.module';
+          $dist_contrib_apps = d()->root . '/profiles/' . $profile . '/modules/contrib/apps/apps.module';
+          if (provision_file()->exists($site_modules_apps)->status() ||
+              provision_file()->exists($allp_modules_apps)->status() ||
+              provision_file()->exists($dist_modules_apps)->status() ||
+              provision_file()->exists($dist_contrib_apps)->status()) {
+            provision_file()->chmod(d()->site_path, 0777)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/modules', 0777)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/themes', 0777)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/libraries', 0777)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all', 0777)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+          }
+        }
+        // Make local.settings.php file group writable temporarily,
+        // until the next site verify, but only if control file exists.
+        $ctrl_local_settings = d()->site_path . '/modules/local-allow.info';
+        $local_settings = d()->site_path . '/local.settings.php';
+        if (provision_file()->exists($ctrl_local_settings)->status() &&
+            provision_file()->exists($local_settings)->status()) {
+          provision_file()->chmod($local_settings, 0660)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+        }
+        // Make civicrm.settings.php file group writable temporarily,
+        // until the next site verify, but only if control file exists.
+        $ctrl_local_settings = d()->site_path . '/modules/local-allow.info';
+        $local_settings = d()->site_path . '/civicrm.settings.php';
+        if (provision_file()->exists($ctrl_local_settings)->status() &&
+            provision_file()->exists($local_settings)->status()) {
+          provision_file()->chmod($local_settings, 0660)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+        }
+      }
+      elseif (preg_match("/^provision-verify/", $command[0])) {
+        // Revert site and platform directories permissions to default.
+        provision_file()->chmod(d()->site_path, 0755)
+          ->succeed('Changed permissions of <code>@path</code> to @perm')
+          ->fail('Could not change permissions of <code>@path</code> to @perm');
+        if (!provision_is_hostmaster_site()) {
+          provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+          provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+          provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+        }
+        provision_file()->chmod(d()->root . '/sites/all', 0755)
+          ->succeed('Changed permissions of <code>@path</code> to @perm')
+          ->fail('Could not change permissions of <code>@path</code> to @perm');
+        provision_file()->chmod(d()->root . '/sites', 0751)
+          ->succeed('Changed permissions of <code>@path</code> to @perm')
+          ->fail('Could not change permissions of <code>@path</code> to @perm');
+        // Revert local.settings.php permissions to default.
+        $local_settings = d()->site_path . '/local.settings.php';
+        if (provision_file()->exists($local_settings)->status()) {
+          provision_file()->chmod($local_settings, 0440)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+        }
+        // Revert civicrm.settings.php permissions to default.
+        $local_settings = d()->site_path . '/civicrm.settings.php';
+        if (provision_file()->exists($local_settings)->status()) {
+          provision_file()->chmod($local_settings, 0640)
+            ->succeed('Changed permissions of <code>@path</code> to @perm')
+            ->fail('Could not change permissions of <code>@path</code> to @perm');
+        }
+        // Delete solr.php to avoid outdated leftovers on clone etc.
+        // $solr_info = d()->site_path . '/solr.php';
+        // if (provision_file()->exists($solr_info)->status()) {
+        //   _provision_recursive_delete($solr_info);
+        //   drush_log(dt('Existing solr.php removed: !solrinfo', array('!solrinfo' => $solr_info)), 'message');
+        // }
+      }
       if (drush_get_option('installed')) {
         // Don't generate the drushrc.php on provision-save/delete commands.
         if (!preg_match("/^provision-(save|delete)/", $command[0])) {
@@ -113,7 +209,7 @@ function provision_drupal_push_site($override_slave_authority = FALSE) {
   ));
 
   // Add platform root auto-discovery to avoid confusing
-  // Composer based D8 codebase root with Drupal real root.
+  // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   // Sync the platform
@@ -350,6 +446,10 @@ function _provision_drupal_create_directories($url = NULL) {
   // Allow other commands to add or alter the directories to be created,
   // chmod'd or chgrp'd.
   // TODO: Figure out a better way to do this.
+  // [ML] This does not seem necessary if we run the fix-permissions bash script
+  // then either Drupal or CiviCRM will not have problems creating the required directories
+  drush_log(dt('_provision_drupal_create_directories: creating directories...'), 'ok');
+  provision_file()->chmod(d()->site_path, 0755);
   drush_command_invoke_all_ref('provision_drupal_create_directories_alter', $mkdir, $url);
   drush_command_invoke_all_ref('provision_drupal_chgrp_directories_alter', $chgrp, $url);
   drush_command_invoke_all_ref('provision_drupal_chgrp_not_recursive_alter', $chgrp_not_recursive, $url);
@@ -377,6 +477,9 @@ function _provision_drupal_create_directories($url = NULL) {
         ->fail('Could not change permissions <code>@path</code> to @perm');
     }
   }
+
+  drush_log(dt('_provision_drupal_create_directories: done'), 'ok');
+  provision_file()->chmod(d()->site_path, 0555);
 }
 
 /**
@@ -390,7 +493,7 @@ function _provision_drupal_create_directories($url = NULL) {
 function _provision_drupal_ensure_htaccess_update() {
 
   // Add platform root auto-discovery to avoid confusing
-  // Composer based D8 codebase root with Drupal real root.
+  // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (drush_drupal_major_version() == 7) {
@@ -451,7 +554,9 @@ function _provision_drupal_ensure_htaccess_update() {
  */
 function _provision_drupal_rebuild_caches() {
   if (d()->type === 'site') {
-    drush_include_engine('drupal', 'clear');
+    if (drush_drupal_major_version() < 12) {
+      drush_include_engine('drupal', 'clear');
+    }
   }
 }
 
@@ -482,7 +587,7 @@ function provision_drupal_find_sites() {
 function provision_drupal_find_aliases() {
 
   // Add platform root auto-discovery to avoid confusing
-  // Composer based D8 codebase root with Drupal real root.
+  // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   $aliases = array();
@@ -519,7 +624,7 @@ function provision_drupal_find_aliases() {
 function _provision_drupal_maintain_aliases() {
 
   // Add platform root auto-discovery to avoid confusing
-  // Composer based D8 codebase root with Drupal real root.
+  // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
@@ -551,7 +656,7 @@ function _provision_drupal_maintain_aliases() {
 function _provision_drupal_delete_aliases() {
 
   // Add platform root auto-discovery to avoid confusing
-  // Composer based D8 codebase root with Drupal real root.
+  // Composer based D8+ codebase root with Drupal real root.
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
@@ -618,10 +723,10 @@ function _provision_find_packages($scope, $key = '') {
     $packages[$type] = array();
     $func = "_provision_drupal_find_$type";
     $result = $func($scope, $key);
-    if (sizeof($result)) {
+    if (count($result)) {
       $packages[$type] = $result;
       drush_log(dt("Found !count !type in !scope",
-        array('!count' => sizeof($result),
+        array('!count' => count($result),
         '!scope' => $scope_text, '!type' => $type)));
     }
   }
@@ -662,7 +767,7 @@ function _provision_drupal_find_modules($scope, $key = '') {
     foreach ($paths as $path) {
       $files = array_merge($files, drush_scan_directory($path, "/\.module$/", array('.', '..', 'CVS', '.svn'), 0, TRUE, 'name'));
     }
-  } 
+  }
 
   foreach ($files as $name => $info) {
     if (drush_drupal_major_version() >= 8) {
@@ -706,7 +811,7 @@ function _provision_drupal_find_modules($scope, $key = '') {
       // Also search included files for function signature
       $include_matches = array();
       preg_match_all('!^\s*(include|require)(_once)?[\s\.\w\(]+([\'\"]{1}([\\\s\w\-\.\/]*)[\'\"]{1})!m', $source, $include_matches);
-      if (sizeof($include_matches[0])) {
+      if (count($include_matches[0])) {
         foreach($include_matches[4] as $include) {
           if ($include_file = realpath(dirname($info->filename) . DIRECTORY_SEPARATOR . $include)) {
             $source .= "\n" . file_get_contents($include_file);
@@ -716,7 +821,7 @@ function _provision_drupal_find_modules($scope, $key = '') {
       $function_matches = array();
         preg_match_all('!function\s*&?([a-zA-Z0-9_]+)_update_([0-9]+)\s*\(.*?\s*\{!', $source, $function_matches);
 
-      if (sizeof($function_matches[0])) {
+      if (count($function_matches[0])) {
         $schema_version = max($schema_version, max($function_matches[2]));
       }
     }
@@ -724,7 +829,7 @@ function _provision_drupal_find_modules($scope, $key = '') {
 
     // If version is missing, or if version is set to 'VERSION', use "drush_drupal_version()".
     // The VERSION constant used in Git checkouts. Also appears when using DEV modules in composer.
-    if (empty($files[$name]->info['version']) || !isset($files[$name]->version) || $files[$name]->version == 'VERSION') {
+    if (empty($files[$name]->info['version']) || $files[$name]->info['version'] == 'VERSION') {
       $files[$name]->version = drush_drupal_version();
     }
     else {
@@ -772,6 +877,8 @@ function provision_prepare_environment() {
     $_SERVER['db_type'] = ($_SERVER['db_type'] == 'mysqli') ? 'mysql' : $_SERVER['db_type'];
   }
 
+  d()->service('db')->fetch_site_credentials();
+
   // Invoke provision_prepare_environment: Allow other scripts to react to the
   // preparation of the environment variables.
   drush_command_invoke_all('provision_prepare_environment');
@@ -795,7 +902,7 @@ function provision_reload_config($context, $file = NULL) {
     drush_log("Reloading $context drushrc.php from $file");
     include($file);
     // $options will be defined by the config file included above.
-    if (sizeof($options)) {
+    if (count($options)) {
       $options = array_merge(drush_get_context($context, array()), $options);
       drush_set_context($context, $options);
     }

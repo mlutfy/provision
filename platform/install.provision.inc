@@ -15,6 +15,7 @@
  * Check that we are trying to install a new site , and a new site only
  */
 function drush_provision_drupal_provision_install_validate() {
+
   if (!d()->uri) {
     return drush_set_error("PROVISION_URL_REQUIRED", dt("You need to specify a valid url to install a site"));
   }
@@ -44,6 +45,7 @@ function drush_provision_drupal_provision_install_validate() {
 
       // Destroy site_path.
       if (file_exists(d()->site_path)) {
+        provision_file()->chmod(d()->site_path, 0755, TRUE);
         _provision_recursive_delete( d()->site_path );
         drush_log(dt('Deleted @site_path.', array('@site_path' => d()->site_path)), 'ok');
       }
@@ -70,6 +72,7 @@ function drush_provision_drupal_pre_provision_install() {
  * If the install went south, and the site is not PROVISION_SITE_INSTALLED, clean up behind ourselves
  */
 function drush_provision_drupal_pre_provision_install_rollback() {
+  provision_file()->chmod(d()->site_path, 0755);
   _provision_recursive_delete( d()->site_path );
   drush_invoke_process('@none', 'provision-save', array(d()->name), array('delete' => TRUE));
   foreach (d()->drush_aliases as $alias) {
@@ -85,12 +88,41 @@ function drush_provision_drupal_pre_provision_install_rollback() {
  * weird problems such as the multiple database connections don't confuse drupal.
  */
 function drush_provision_drupal_provision_install() {
- // Requires at least the database settings to complete.
+  // Requires at least the database settings to complete.
   provision_prepare_environment();
   _provision_drupal_create_settings_file();
   provision_drupal_push_site($override_slave_authority = TRUE);
-
   provision_save_site_data();
+
+  $drupal_core_version = provision_get_drupal_core_version();
+  drush_log('provision_install Detected core ' . $drupal_core_version, 'ok');
+
+  if (version_compare($drupal_core_version, 10, '>=')) {
+    drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
+    chdir(d()->site_path);
+    // @todo profile?
+    $client_email = drush_get_option('client_email');
+    $site_name = ltrim(d()->name, '@');
+
+    $aegir_db_user = drush_get_option('db_user');
+    $aegir_db_pass = drush_get_option('db_passwd');
+    $aegir_db_port = drush_get_option('db_port');
+    $aegir_db_host = drush_get_option('db_host');
+    $aegir_db_name = drush_get_option('db_name');
+
+    $db = "mysql://$aegir_db_user:$aegir_db_pass@$aegir_db_host:$aegir_db_port/$aegir_db_name";
+    $command = '../../../vendor/drush/drush/drush site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+    drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+    $output = system($command, $retval);
+    drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
+
+    // Fix permissions
+    drush_log(dt("Drupal: running fix-drupal-site-ownership.sh and permissions..."), 'ok');
+    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-ownership.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
+    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-permissions.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
+    drush_log(dt("Drupal: finished running fix-drupal-site-ownership.sh and permissions"), 'ok');
+    return;
+  }
 
   drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
 
@@ -104,18 +136,25 @@ function drush_provision_drupal_provision_install() {
 
     // call a backend task to do the actual installation.
     $result = provision_backend_invoke(d()->name, "provision-install-backend", array(), array('client_email' => drush_get_option('client_email')));
-    
+
     // pass the login link back to the front end.
     drush_set_option('login_link', $result['context']['login_link']);
 
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
+    if (drush_drupal_major_version() < 12) {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
+    }
+    else {
+      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION);
+      drush_log("Skipping FULL bootstrap for drupal 12+ in drush_provision_drupal_provision_install");
+    }
+
     drush_set_option('profile_installed', TRUE, 'site');
   }
   // If install_method is 'manual', do nothing.
   elseif (d()->install_method == 'manual') {
     drush_set_option('login_link', 'http://' . d()->uri . '/install.php');
   }
-  
+
   drush_set_option('installed', TRUE, 'site');
   _provision_drupal_maintain_aliases();
 
@@ -129,7 +168,9 @@ function drush_provision_drupal_post_provision_install() {
 
   // If Drupal profile was installed, rebuild drupal caches and save enabled packages for aegir.
   if (d()->install_method == 'profile' && drush_get_option('profile_installed', FALSE, 'site')) {
-    _provision_drupal_rebuild_caches();
+    if (drush_drupal_major_version() < 12) {
+      _provision_drupal_rebuild_caches();
+    }
     drush_set_option('packages', _scrub_object(provision_drupal_system_map()), 'site');
     _provision_client_create_symlink();
     drush_include_engine('drupal', 'cron_key');
@@ -139,4 +180,3 @@ function drush_provision_drupal_post_provision_install() {
     _provision_client_create_symlink();
   }
 }
-

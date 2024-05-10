@@ -21,7 +21,7 @@ function install_send_welcome_mail($url, $account, $language, $client_email, $on
       '!username' => $account->name, '!site' => variable_get('site_name', 'Drupal'), '!login_url' => $onetime,
       '!uri' => $base_url, '!uri_brief' => preg_replace('!^https?://!', '', $base_url), '!mailto' => $account->mail,
       '!date' => format_date(time()), '!login_uri' => url('user', array('absolute' => TRUE)),
-      '!edit_uri' => url('user/'. $account->uid .'/edit', array('absolute' => TRUE)));
+      '!edit_uri' => url('user/' . $account->uid . '/edit', array('absolute' => TRUE)));
 
     $mail_success = drupal_mail('install', 'welcome-admin', $account->mail, user_preferred_language($account), $mail_params, $from, TRUE);
 
@@ -84,6 +84,7 @@ function install_main() {
   // We have an existing settings.php.
 
   switch (substr(drush_core_version(), 0, 1)) {
+    case '10':
     case '9':
     case '8':
     case '7':
@@ -178,6 +179,24 @@ function install_main() {
   }
 }
 install_main();
+
+function install_civicrm_dashboard() {
+  // Create a CiviCRM dashboard link in the navigation menu.
+  $options = array(
+    'link_title' => 'CiviCRM',
+    'link_path' => 'civicrm/dashboard',
+  );
+  menu_link_save($options);
+
+  // Update the menu router and cache information.
+  menu_cache_clear_all();
+
+  drush_log(dt("CiviCRM: dashboard link in the navigation menu added in install_civicrm_dashboard."), 'ok');
+}
+
+if (provision_file()->exists(DRUPAL_ROOT . '/sites/all/modules/civicrm/drupal/civicrm.install')->status()) {
+  install_civicrm_dashboard();
+}
 
 function install_exception_handler() {
   dlm(func_get_args());

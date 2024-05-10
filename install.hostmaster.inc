@@ -13,9 +13,15 @@
  * @see Provision_Service_db_mysql::grant_host().
  */
 function drush_provision_hostmaster_install_pre_validate() {
+
   $user = 'intntnllyInvalid';
   drush_command_invoke_all_ref('provision_db_username_alter', $user, drush_get_option('aegir_db_host', 'localhost'));
   $command = sprintf('mysql -u %s -h %s -P %s -e "SELECT VERSION()"', $user, drush_get_option('aegir_db_host', 'localhost'), drush_get_option('aegir_db_port', '3306'));
+
+  // [ML] Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. ERROR at line 1: Unknown command '\('.
+  drush_log("DEBUG command drush_provision_hostmaster_install_pre_validate: $command", 'ok');
+  return;
+
   drush_shell_exec($command);
 
   if (preg_match("/Access denied for user '{$user}'@'([^']*)'/", implode('', drush_shell_exec_output()), $match)) {
@@ -30,6 +36,19 @@ function drush_provision_hostmaster_install_pre_validate() {
 }
 
 function drush_provision_hostmaster_install_validate($site = NULL) {
+
+  $script_user = drush_get_option('script_user');
+  if (!$script_user && $server->script_user) {
+    $script_user = $server->script_user;
+  }
+  $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
+  if (provision_file()->exists($ctrlf)->status()) {
+    $db_port = '6033';
+  }
+  else {
+    $db_port = '3306';
+  }
+
   // set defaults for this whole script
   // those are settings that are not prompted to the user but still overridable
   drush_set_default('version', provision_version());
@@ -47,7 +66,7 @@ function drush_provision_hostmaster_install_validate($site = NULL) {
   drush_set_default('http_service_type', 'apache');
   drush_set_default('http_port', '80');
   drush_set_default('aegir_db_user', 'root');
-  drush_set_default('aegir_db_port', '3306');
+  drush_set_default('aegir_db_port', $db_port);
   drush_set_default('client_name', 'admin');
   $aegir_db_user = drush_get_option('aegir_db_user');
 
