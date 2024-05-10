@@ -9,28 +9,10 @@ class Provision_Service_db_pdo extends Provision_Service_db {
 
   function init_server() {
     parent::init_server();
-
     $this->dsn = sprintf("%s:host=%s", $this->PDO_type,  $this->creds['host']);
     if ($this->has_port) {
       $this->dsn = "{$this->dsn};port={$this->server->db_port}";
     }
-
-    if ($this->server->db_port == '6033') {
-      if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
-        include('/opt/tools/drush/proxysql_adm_pwd.inc');
-        if ($writer_node_ip) {
-          drush_log('Skip ProxySQL in Provision_Service_db_pdo', 'notice');
-          $this->dsn = sprintf("%s:host=%s", $this->PDO_type,  $writer_node_ip);
-          $this->dsn = "{$this->dsn};port=3306";
-        }
-        else {
-          drush_log('Using ProxySQL in Provision_Service_db_pdo', 'notice');
-        }
-      }
-    }
-
-    drush_log('DSN in Provision_Service_db_pdo', 'notice');
-    drush_log($this->dsn, 'notice');
   }
 
   function connect() {
