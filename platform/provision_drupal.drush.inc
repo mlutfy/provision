@@ -119,15 +119,17 @@ function provision_drupal_drush_exit() {
           ->succeed('Changed permissions of <code>@path</code> to @perm')
           ->fail('Could not change permissions of <code>@path</code> to @perm');
         if (!provision_is_hostmaster_site()) {
-          provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
-          provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
-          provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
+          if (file_exists(d()->root . '/sites/all/modules')) {
+            provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+          }
         }
         provision_file()->chmod(d()->root . '/sites/all', 0755)
           ->succeed('Changed permissions of <code>@path</code> to @perm')
