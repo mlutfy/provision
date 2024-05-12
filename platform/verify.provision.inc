@@ -55,31 +55,6 @@ function drush_provision_drupal_pre_provision_verify() {
     drush_log(dt("Checking for platform at path @path...", array('@path' => d()->root)), 'debug');
     drush_log(dt("Platform makefile: @makefile", array('@makefile' => d()->makefile)), 'debug');
 
-    // Create a platform from a makefile, if it doesnt already exist and the makefile does.
-    if (!provision_file()->exists(d()->root)->status() && !empty(d()->makefile)) {
-      drush_log(dt("Platform path does not exist, fetching from drush makefile"), 'notice');
-      $arguments = array();
-      $options = array();
-      // Propagate working-copy args downward.
-      if (drush_get_option('working-copy') || !empty(d()->make_working_copy)) {
-        $options[] = '--working-copy';
-      }
-      $arguments[] = d()->makefile;
-      $arguments[] = d()->root;
-
-      // Change current directory to makefile's directory until Drush fixes this bug: https://github.com/drush-ops/drush/issues/2482
-      // @TODO: Remove this once is committed.
-      if (!empty(d()->makefile) && file_exists(dirname(d()->makefile))) {
-        chdir(dirname(d()->makefile));
-      }
-
-      drush_invoke_process('@none', "make", $arguments, $options);
-      if (drush_get_error()) {
-        return drush_set_error("DRUSH_MAKE_FAILED",
-          "Could not download platform using drush make. No platform present");
-      }
-    }
-
     // Re-set the ROOT PATH for Drush.
     // In cases where we just build the platform Drush would have cleared this value.
     // See Drush commit 3b74d40b1228f022464b92243c16127eb613c2df
