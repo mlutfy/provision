@@ -204,52 +204,8 @@ function drush_provision_drupal_provision_install_backend() {
  *    Useful when the master server has donw file operations, such as restoring a backup.
  */
 function provision_drupal_push_site($override_slave_authority = FALSE) {
-
-  provision_file()->create_dir(d()->server->http_platforms_path, dt("Platforms"), 0755);
-  d()->server->sync(d()->server->http_platforms_path, array(
-    'exclude' => d()->server->http_platforms_path . '/*',  // Make sure remote directory is created
-  ));
-
-  // Add platform root auto-discovery to avoid confusing
-  // Composer based D8+ codebase root with Drupal real root.
-  d()->root = provision_auto_fix_platform_root(d()->root);
-
-  // Sync the platform
-  $sync_path = d()->root;
-  drush_command_invoke_all_ref('provision_platform_sync_path_alter', $sync_path);
-  d()->service('http')->sync($sync_path, array('exclude-sites' => TRUE));
-
-  if (d()->type === 'site') {
-    // Check whether we're hosted on a cluster, in which case, the master is
-    // authoritative.
-    $cluster = d()->platform->web_server->http_service_type == 'cluster' ? TRUE : FALSE;
-    $options = array();
-    if ($override_slave_authority || $cluster) {
-      $exclude = NULL;
-    }
-    else {
-      $exclude = 'files/*' . PATH_SEPARATOR . 'private/*';
-    }
-
-    // Store the current exclude-path option
-    $old_exclude = NULL;
-    if(!is_null($exclude)) {
-      $old_exclude = drush_get_option('exclude-paths');
-      drush_set_option('exclude-paths', $exclude);
-    }
-
-    // Sync all filesystem changes to the remote server.
-    d()->service('http')->sync(d()->site_path, $options);
-
-    // Reset the exclude-path option
-    if(!is_null($exclude)) {
-      if(empty($old_exclude)) {
-        drush_unset_option('exclude-paths');
-      } else {
-        drush_set_option('exclude-paths', $old_exclude);
-      }
-    }
-  }
+  // [ML] SYMBIOTIC we do not use this, and it causes problems sometimes
+  drush_log("provision_drupal_push_site: function is ignored, we do not use this.");
 }
 
 /**
