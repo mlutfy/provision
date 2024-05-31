@@ -21,8 +21,10 @@ class Provision_Config_Drupal_Settings extends Provision_Config {
       $this->data = array_merge($this->data, $data);
     }
 
-    $drupal_core_version = provision_get_drupal_core_version();
-    if ($drupal_core_version && version_compare($drupal_core_version, 10, '>=')) {
+    $drupal_core_version = provision_get_drupal_core_major_version();
+    drush_log(dt('Detected Drupal version: !version', ['!version' => $drupal_core_version]));
+
+    if ($drupal_core_version >= 10) {
       $this->template = 'provision_drupal_settings_10.tpl.php';
       $this->data['db_type'] = ($this->data['db_type'] == 'mysqli') ? 'mysql' : $this->data['db_type'];
       $this->data['utf8mb4_is_configurable'] = TRUE;

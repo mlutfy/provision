@@ -60,20 +60,6 @@ function drush_provision_drupal_pre_provision_verify() {
     // See Drush commit 3b74d40b1228f022464b92243c16127eb613c2df
     drush_set_context('DRUSH_SELECTED_DRUPAL_ROOT', d()->root);
 
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_ROOT);
-    // If we couldn't bootstrap, there's no sense in continuing past this point.
-    if (drush_get_error()) {
-      $errors = drush_get_error_log();
-      foreach ($errors as $type => &$error) {
-        $error = "$type: {$error[0]}";
-      }
-      return drush_set_error("DRUSH_INVALID_DRUPAL_ROOT",
-        dt("A Drupal codebase was not found in @path. Please check that the directory exists and Drupal's index.php file is present. Check if the Publish Path of the platform exists, contains Drupal and is readable, then try again. The errors were: @errors", array(
-          '@path' => d()->root,
-          '@errors' => implode('|', $errors)
-        )));
-    }
-
     // Fix ownership early enough
     $success = drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-platform-ownership.sh --root=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
 
@@ -89,8 +75,11 @@ function drush_provision_drupal_pre_provision_verify() {
       }
     }
 
+    // $drupal_version = provision_get_drupal_core_version();
+    // $drupal_major = explode('.', $drupal_version)[0];
     drush_set_option('sites', array_keys((array) provision_drupal_find_sites()), 'drupal');
-    drush_log(dt("This platform is running @short_name @version", array('@short_name' => 'drupal', '@version' => drush_drupal_version())), 'info');
+    drush_log(dt("This platform is running @short_name @version", array('@short_name' => 'drupal', '@version' => provision_get_drupal_core_version())), 'ok');
+    // require_once __DIR__ . '/../platform/drupal/packages_' . $drupal_major . '.inc';
     drush_set_option('packages', _scrub_object(provision_find_packages()), 'drupal');
 
     // Determine latest BOA contrib directory name and add INI template if missing.
@@ -104,18 +93,16 @@ function drush_provision_drupal_pre_provision_verify() {
       provision_file()->create_dir($pathDrc, dt("Sites All Drush dir created"), 0755);
     }
 
-    if (!preg_match("/\/static\//", d()->root)) {
-      if (!provision_is_hostmaster_site()) {
-        provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-        provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-        provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-      }
+    if (file_exists(d()->root . '/sites/all/modules')) {
+      provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
+      provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
+      provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
       provision_file()->chmod(d()->root . '/sites/all', 0755)
         ->succeed('Changed permissions of <code>@path</code> to @perm')
         ->fail('Could not change permissions of <code>@path</code> to @perm');

@@ -568,6 +568,18 @@ function provision_get_drupal_core_version() {
 }
 
 /**
+ * Retuns the major Drupal version
+ */
+function provision_get_drupal_core_major_version() {
+  $version = provision_get_drupal_core_version();
+  if ($version) {
+    $parts = explode('.', $version);
+    return $parts[0];
+  }
+  return NULL;
+}
+
+/**
  * the aegir version of the backend
  *
  * @return string

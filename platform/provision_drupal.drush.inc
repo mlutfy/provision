@@ -641,10 +641,9 @@ function _provision_drupal_delete_aliases() {
 
 function provision_find_packages() {
   // Load the version specific include files.
-  drush_include_engine('drupal', 'packages', drush_drupal_major_version());
-
+  $major = provision_get_drupal_core_major_version();
+  require_once __DIR__ . '/../platform/drupal/packages_' . $major . '.inc';
   $packages['base'] = _provision_find_packages('base');
-
   $packages['sites-all'] = _provision_find_packages('sites', 'all');
 
   // Create a package for the Drupal release
@@ -657,7 +656,7 @@ function provision_find_packages() {
   // Iterate through the install profiles, finding the profile specific packages
   foreach ($profiles as $profile => $info) {
     if (empty($info->version)) {
-      $info->version = drush_drupal_version();
+      $info->version = provision_get_drupal_core_version();
     }
     $packages['base']['profiles'][$profile] = $info;
     $packages['profiles'][$profile] =  _provision_find_packages('profiles', $profile);
@@ -806,7 +805,8 @@ function provision_parse_info_file($filename) {
     'dependencies' => array(),
     'description' => '',
     'version' => NULL,
-    'php' => DRUPAL_MINIMUM_PHP,
+    // [ML] Constant is not available since we are not bootstrapping the CMS
+    // 'php' => DRUPAL_MINIMUM_PHP,
   );
 
   if (file_exists($filename)) {
