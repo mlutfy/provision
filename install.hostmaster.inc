@@ -36,17 +36,9 @@ function drush_provision_hostmaster_install_pre_validate() {
 }
 
 function drush_provision_hostmaster_install_validate($site = NULL) {
-
   $script_user = drush_get_option('script_user');
   if (!$script_user && $server->script_user) {
     $script_user = $server->script_user;
-  }
-  $ctrlf = '/data/conf/' . $script_user . '_use_proxysql.txt';
-  if (provision_file()->exists($ctrlf)->status()) {
-    $db_port = '6033';
-  }
-  else {
-    $db_port = '3306';
   }
 
   // set defaults for this whole script
@@ -66,7 +58,7 @@ function drush_provision_hostmaster_install_validate($site = NULL) {
   drush_set_default('http_service_type', 'apache');
   drush_set_default('http_port', '80');
   drush_set_default('aegir_db_user', 'root');
-  drush_set_default('aegir_db_port', $db_port);
+  drush_set_default('aegir_db_port', '3306');
   drush_set_default('client_name', 'admin');
   $aegir_db_user = drush_get_option('aegir_db_user');
 
