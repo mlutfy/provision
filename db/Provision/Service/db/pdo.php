@@ -103,7 +103,7 @@ class Provision_Service_db_pdo extends Provision_Service_db {
       return TRUE;
     }
     catch (PDOException $e) {
-      drush_log('PDOException in database_exists', 'notice');
+      drush_log('PDOException in database_exists (this might be OK)', 'notice');
       drush_log($e->getMessage(), 'notice');
       return FALSE;
     }
