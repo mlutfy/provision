@@ -99,12 +99,13 @@ function drush_provision_drupal_provision_install() {
   drush_log('provision_install Detected core ' . $drupal_core_version, 'ok');
 
   // Still somewhat experimental (works for D10, and hostmaster sort of, but not much tested otherwise)
+  $site_name = ltrim(d()->name, '@');
+
   if ($site_name == 'hostmaster' || version_compare($drupal_core_version, 10, '>=')) {
     drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
     chdir(d()->site_path);
     // @todo profile?
     $client_email = drush_get_option('client_email');
-    $site_name = ltrim(d()->name, '@');
 
     $aegir_db_user = drush_get_option('db_user');
     $aegir_db_pass = drush_get_option('db_passwd');
