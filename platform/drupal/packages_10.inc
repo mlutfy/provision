@@ -177,12 +177,12 @@ function _provision_find_profiles() {
 
   $profiles = array();
   foreach($profile_dirs as $profile_dir) {
-    if (!is_dir($profile_dir)) {
+    if (!is_dir(d()->root . '/' . $profile_dir)) {
       drush_log(dt("Cannot find profiles directory %dir", array('%dir' => $profile_dir)), 'error');
       return FALSE;
     }
 
-    $info_files = drush_scan_directory($profile_dir, "/\.info.yml$/");
+    $info_files = drush_scan_directory(d()->root . '/' . $profile_dir, "/\.info.yml$/");
     foreach ($info_files as $path => $info_file) {
       $path = realpath($path);
       $info = Symfony\Component\Yaml\Yaml::parse(file_get_contents($path));
@@ -207,7 +207,7 @@ function _provision_find_profiles() {
  */
 function _provision_drupal_search_paths($scope, $key = '', $type = 'modules') {
   $searchpaths = array();
-  $drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT');
+  $drupal_root = d()->root;
   switch ($scope) {
     case 'base':
       $searchpaths[] = sprintf("%s/%s", $drupal_root, $type);

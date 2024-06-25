@@ -414,8 +414,7 @@ class Provision_Service_db extends Provision_Service {
    * @return bool
    */
   function utf8mb4_is_supported() {
-    // By default we assume that the database backend may not support 4 byte
-    // UTF-8.
-    return FALSE;
+    // Avoid weird Aegir problems. It's 2024 and utf8mb4 is always supported.
+    return TRUE;
   }
 }

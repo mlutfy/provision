@@ -119,15 +119,17 @@ function provision_drupal_drush_exit() {
           ->succeed('Changed permissions of <code>@path</code> to @perm')
           ->fail('Could not change permissions of <code>@path</code> to @perm');
         if (!provision_is_hostmaster_site()) {
-          provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
-          provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
-          provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
-            ->succeed('Changed permissions of <code>@path</code> to @perm')
-            ->fail('Could not change permissions of <code>@path</code> to @perm');
+          if (file_exists(d()->root . '/sites/all/modules')) {
+            provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+            provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
+              ->succeed('Changed permissions of <code>@path</code> to @perm')
+              ->fail('Could not change permissions of <code>@path</code> to @perm');
+          }
         }
         provision_file()->chmod(d()->root . '/sites/all', 0755)
           ->succeed('Changed permissions of <code>@path</code> to @perm')
@@ -202,52 +204,8 @@ function drush_provision_drupal_provision_install_backend() {
  *    Useful when the master server has donw file operations, such as restoring a backup.
  */
 function provision_drupal_push_site($override_slave_authority = FALSE) {
-
-  provision_file()->create_dir(d()->server->http_platforms_path, dt("Platforms"), 0755);
-  d()->server->sync(d()->server->http_platforms_path, array(
-    'exclude' => d()->server->http_platforms_path . '/*',  // Make sure remote directory is created
-  ));
-
-  // Add platform root auto-discovery to avoid confusing
-  // Composer based D8+ codebase root with Drupal real root.
-  d()->root = provision_auto_fix_platform_root(d()->root);
-
-  // Sync the platform
-  $sync_path = d()->root;
-  drush_command_invoke_all_ref('provision_platform_sync_path_alter', $sync_path);
-  d()->service('http')->sync($sync_path, array('exclude-sites' => TRUE));
-
-  if (d()->type === 'site') {
-    // Check whether we're hosted on a cluster, in which case, the master is
-    // authoritative.
-    $cluster = d()->platform->web_server->http_service_type == 'cluster' ? TRUE : FALSE;
-    $options = array();
-    if ($override_slave_authority || $cluster) {
-      $exclude = NULL;
-    }
-    else {
-      $exclude = 'files/*' . PATH_SEPARATOR . 'private/*';
-    }
-
-    // Store the current exclude-path option
-    $old_exclude = NULL;
-    if(!is_null($exclude)) {
-      $old_exclude = drush_get_option('exclude-paths');
-      drush_set_option('exclude-paths', $exclude);
-    }
-
-    // Sync all filesystem changes to the remote server.
-    d()->service('http')->sync(d()->site_path, $options);
-
-    // Reset the exclude-path option
-    if(!is_null($exclude)) {
-      if(empty($old_exclude)) {
-        drush_unset_option('exclude-paths');
-      } else {
-        drush_set_option('exclude-paths', $old_exclude);
-      }
-    }
-  }
+  // [ML] SYMBIOTIC we do not use this, and it causes problems sometimes
+  drush_log("provision_drupal_push_site: function is ignored, we do not use this.");
 }
 
 /**
@@ -685,10 +643,9 @@ function _provision_drupal_delete_aliases() {
 
 function provision_find_packages() {
   // Load the version specific include files.
-  drush_include_engine('drupal', 'packages', drush_drupal_major_version());
-
+  $major = provision_get_drupal_core_major_version();
+  require_once __DIR__ . '/../platform/drupal/packages_' . $major . '.inc';
   $packages['base'] = _provision_find_packages('base');
-
   $packages['sites-all'] = _provision_find_packages('sites', 'all');
 
   // Create a package for the Drupal release
@@ -701,7 +658,7 @@ function provision_find_packages() {
   // Iterate through the install profiles, finding the profile specific packages
   foreach ($profiles as $profile => $info) {
     if (empty($info->version)) {
-      $info->version = drush_drupal_version();
+      $info->version = provision_get_drupal_core_version();
     }
     $packages['base']['profiles'][$profile] = $info;
     $packages['profiles'][$profile] =  _provision_find_packages('profiles', $profile);
@@ -850,7 +807,8 @@ function provision_parse_info_file($filename) {
     'dependencies' => array(),
     'description' => '',
     'version' => NULL,
-    'php' => DRUPAL_MINIMUM_PHP,
+    // [ML] Constant is not available since we are not bootstrapping the CMS
+    // 'php' => DRUPAL_MINIMUM_PHP,
   );
 
   if (file_exists($filename)) {

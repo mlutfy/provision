@@ -55,49 +55,10 @@ function drush_provision_drupal_pre_provision_verify() {
     drush_log(dt("Checking for platform at path @path...", array('@path' => d()->root)), 'debug');
     drush_log(dt("Platform makefile: @makefile", array('@makefile' => d()->makefile)), 'debug');
 
-    // Create a platform from a makefile, if it doesnt already exist and the makefile does.
-    if (!provision_file()->exists(d()->root)->status() && !empty(d()->makefile)) {
-      drush_log(dt("Platform path does not exist, fetching from drush makefile"), 'notice');
-      $arguments = array();
-      $options = array();
-      // Propagate working-copy args downward.
-      if (drush_get_option('working-copy') || !empty(d()->make_working_copy)) {
-        $options[] = '--working-copy';
-      }
-      $arguments[] = d()->makefile;
-      $arguments[] = d()->root;
-
-      // Change current directory to makefile's directory until Drush fixes this bug: https://github.com/drush-ops/drush/issues/2482
-      // @TODO: Remove this once is committed.
-      if (!empty(d()->makefile) && file_exists(dirname(d()->makefile))) {
-        chdir(dirname(d()->makefile));
-      }
-
-      drush_invoke_process('@none', "make", $arguments, $options);
-      if (drush_get_error()) {
-        return drush_set_error("DRUSH_MAKE_FAILED",
-          "Could not download platform using drush make. No platform present");
-      }
-    }
-
     // Re-set the ROOT PATH for Drush.
     // In cases where we just build the platform Drush would have cleared this value.
     // See Drush commit 3b74d40b1228f022464b92243c16127eb613c2df
     drush_set_context('DRUSH_SELECTED_DRUPAL_ROOT', d()->root);
-
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_ROOT);
-    // If we couldn't bootstrap, there's no sense in continuing past this point.
-    if (drush_get_error()) {
-      $errors = drush_get_error_log();
-      foreach ($errors as $type => &$error) {
-        $error = "$type: {$error[0]}";
-      }
-      return drush_set_error("DRUSH_INVALID_DRUPAL_ROOT",
-        dt("A Drupal codebase was not found in @path. Please check that the directory exists and Drupal's index.php file is present. Check if the Publish Path of the platform exists, contains Drupal and is readable, then try again. The errors were: @errors", array(
-          '@path' => d()->root,
-          '@errors' => implode('|', $errors)
-        )));
-    }
 
     // Fix ownership early enough
     $success = drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-platform-ownership.sh --root=%s --script-user=%s --web-group=%s", d()->root, d()->server->script_user, d()->server->web_group);
@@ -114,12 +75,14 @@ function drush_provision_drupal_pre_provision_verify() {
       }
     }
 
+    // $drupal_version = provision_get_drupal_core_version();
+    // $drupal_major = explode('.', $drupal_version)[0];
     drush_set_option('sites', array_keys((array) provision_drupal_find_sites()), 'drupal');
-    drush_log(dt("This platform is running @short_name @version", array('@short_name' => 'drupal', '@version' => drush_drupal_version())), 'info');
+    drush_log(dt("This platform is running @short_name @version", array('@short_name' => 'drupal', '@version' => provision_get_drupal_core_version())), 'ok');
+    // require_once __DIR__ . '/../platform/drupal/packages_' . $drupal_major . '.inc';
     drush_set_option('packages', _scrub_object(provision_find_packages()), 'drupal');
 
     // Determine latest BOA contrib directory name and add INI template if missing.
-    $pathAll = '/data/all/';
     $pathSal = d()->root . '/sites/all';
     $pathDrc = d()->root . '/sites/all/drush';
 
@@ -130,18 +93,16 @@ function drush_provision_drupal_pre_provision_verify() {
       provision_file()->create_dir($pathDrc, dt("Sites All Drush dir created"), 0755);
     }
 
-    if (!preg_match("/\/static\//", d()->root)) {
-      if (!provision_is_hostmaster_site()) {
-        provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-        provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-        provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
-          ->succeed('Changed permissions of <code>@path</code> to @perm')
-          ->fail('Could not change permissions of <code>@path</code> to @perm');
-      }
+    if (file_exists(d()->root . '/sites/all/modules')) {
+      provision_file()->chmod(d()->root . '/sites/all/modules', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
+      provision_file()->chmod(d()->root . '/sites/all/themes', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
+      provision_file()->chmod(d()->root . '/sites/all/libraries', 02775)
+        ->succeed('Changed permissions of <code>@path</code> to @perm')
+        ->fail('Could not change permissions of <code>@path</code> to @perm');
       provision_file()->chmod(d()->root . '/sites/all', 0755)
         ->succeed('Changed permissions of <code>@path</code> to @perm')
         ->fail('Could not change permissions of <code>@path</code> to @perm');
@@ -156,238 +117,6 @@ function drush_provision_drupal_pre_provision_verify() {
         ->fail('Could not change permissions of <code>@path</code> to @perm');
     }
 
-    $core8_version_id = d()->root . '/core';
-    $core9_version_id = d()->root . '/core/themes/olivero';
-    $core10_version_f = d()->root . '/core/themes/classy';
-
-    if (provision_file()->exists($pathAll)->status() &&
-       (provision_file()->exists($core8_version_id)->status() ||
-        preg_match("/\/static\//", d()->root))) {
-      $sortedDirs = array();
-      foreach(scandir($pathAll) as $dir) {
-        if(is_dir($pathAll . $dir)) {
-          array_push($sortedDirs, $dir);
-        }
-      }
-      $latestDir = max($sortedDirs);
-      drush_log(dt('Contrib latestDir: !latest', array('!latest' => $latestDir)), 'message');
-
-      if (is_numeric($latestDir)) {
-        $core6_contrib_dir = '/data/all/' . $latestDir . '/o_contrib';
-        $core7_contrib_dir = '/data/all/' . $latestDir . '/o_contrib_seven';
-        $core8_contrib_dir = '/data/all/' . $latestDir . '/o_contrib_eight';
-        $core9_contrib_dir = '/data/all/' . $latestDir . '/o_contrib_nine';
-        $core10_contrib_dir = '/data/all/' . $latestDir . '/o_contrib_ten';
-      }
-      else {
-        $core6_contrib_dir = '/data/all/000/modules/o_contrib';
-        $core7_contrib_dir = '/data/all/000/modules/o_contrib_seven';
-        $core8_contrib_dir = '/data/all/000/modules/o_contrib_eight';
-        $core9_contrib_dir = '/data/all/000/modules/o_contrib_nine';
-        $core10_contrib_dir = '/data/all/000/modules/o_contrib_ten';
-      }
-
-      $core6_version_id = d()->root . '/modules/path_alias_cache';
-      $core6_contrib_symlink = d()->root . '/modules/o_contrib';
-      $core6_contrib_dot = d()->root . '/modules/.o_contrib_dont_use';
-      $core7_version_id = d()->root . '/modules/overlay';
-      $core7_contrib_symlink = d()->root . '/modules/o_contrib_seven';
-      $core7_contrib_dot = d()->root . '/modules/.o_contrib_seven_dont_use';
-      $core8_version_id = d()->root . '/core';
-      $core8_contrib_symlink = d()->root . '/modules/o_contrib_eight';
-      $core8_contrib_dot = d()->root . '/modules/.o_contrib_eight_dont_use';
-      $core9_version_id = d()->root . '/core/themes/olivero';
-      $core9_contrib_symlink = d()->root . '/modules/o_contrib_nine';
-      $core9_contrib_dot = d()->root . '/modules/.o_contrib_nine_dont_use';
-      $core10_version_f = d()->root . '/core/themes/classy';
-      $core10_contrib_symlink = d()->root . '/modules/o_contrib_ten';
-      $core10_contrib_dot = d()->root . '/modules/.o_contrib_ten_dont_use';
-
-      $core6_contrib_js_file = $core6_contrib_dir . '/js/js.php';
-      $core7_contrib_js_file = $core7_contrib_dir . '/js/js.php';
-      $core6_contrib_js_symlink = d()->root . '/js.php';
-      $core7_contrib_js_symlink = d()->root . '/js.php';
-
-      // Make sure the platform root and core modules directories are writable (BOA).
-      if (provision_file()->exists($core6_contrib_dir)->status() ||
-          provision_file()->exists($core7_contrib_dir)->status() ||
-          provision_file()->exists($core8_contrib_dir)->status() ||
-          provision_file()->exists($core9_contrib_dir)->status() ||
-          provision_file()->exists($core10_contrib_dir)->status()) {
-        provision_file()->writable(d()->root)
-          ->succeed('Drupal root directory @path is writable by the provisioning script')
-          ->fail('Drupal root directory @path is not writable by the provisioning script', 'PROVISION_DRUPAL_ROOT_DIR_NOT_WRITABLE');
-        provision_file()->writable(d()->root . '/modules')
-          ->succeed('Drupal core modules directory @path is writable by the provisioning script')
-          ->fail('Drupal core modules directory @path is not writable by the provisioning script', 'PROVISION_CORE_MODULES_DIR_NOT_WRITABLE');
-      }
-
-      // Add symlink to BOA specific contrib in Pressflow 6.
-      // Check if static copy exists first
-      if (is_dir($core6_contrib_symlink) && !is_link($core6_contrib_symlink)) {
-        // Run cleanup of previous dot dir if exists
-        // and current contrib is not a symlink again.
-        if (provision_file()->exists($core6_contrib_dot)->status()) {
-          _provision_recursive_delete($core6_contrib_dot);
-          drush_log(dt('Static dot-copy of BOA contrib removed from: !contrib', array('!contrib' => $core6_contrib_dot)), 'message');
-        }
-        // Rename static contrib to dot dir if exists
-        rename($core6_contrib_symlink, $core6_contrib_dot);
-        drush_log(dt('Static BOA contrib renamed to dot-copy : !dot', array('!dot' => $core6_contrib_dot)), 'message');
-      }
-      if (provision_file()->exists($core6_contrib_dir)->status() &&
-          provision_file()->exists($core6_version_id)->status() &&
-          !provision_file()->exists($core6_contrib_symlink)->status()) {
-        provision_file()->symlink($core6_contrib_dir, $core6_contrib_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-
-      // Add symlink to BOA specific contrib in Drupal 7.
-      // Check if static copy exists first
-      if (is_dir($core7_contrib_symlink) && !is_link($core7_contrib_symlink)) {
-        // Run cleanup of previous dot dir if exists
-        // and current contrib is not a symlink again.
-        if (provision_file()->exists($core7_contrib_dot)->status()) {
-          _provision_recursive_delete($core7_contrib_dot);
-          drush_log(dt('Static dot-copy of BOA contrib removed from: !contrib', array('!contrib' => $core7_contrib_dot)), 'message');
-        }
-        // Rename static contrib to dot dir if exists
-        rename($core7_contrib_symlink, $core7_contrib_dot);
-        drush_log(dt('Static BOA contrib renamed to dot-copy : !dot', array('!dot' => $core7_contrib_dot)), 'message');
-      }
-      if (provision_file()->exists($core7_contrib_dir)->status() &&
-         provision_file()->exists($core7_version_id)->status() &&
-         !provision_file()->exists($core7_contrib_symlink)->status()) {
-        provision_file()->symlink($core7_contrib_dir, $core7_contrib_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-
-      // Add symlink to BOA specific contrib in Drupal 8.
-      // Check if static copy exists first
-      if (is_dir($core8_contrib_symlink) && !is_link($core8_contrib_symlink)) {
-        // Run cleanup of previous dot dir if exists
-        // and current contrib is not a symlink again.
-        if (provision_file()->exists($core8_contrib_dot)->status()) {
-          _provision_recursive_delete($core8_contrib_dot);
-          drush_log(dt('Static dot-copy of BOA contrib removed from: !contrib', array('!contrib' => $core8_contrib_dot)), 'message');
-        }
-        // Rename static contrib to dot dir if exists
-        rename($core8_contrib_symlink, $core8_contrib_dot);
-        drush_log(dt('Static BOA contrib renamed to dot-copy : !dot', array('!dot' => $core8_contrib_dot)), 'message');
-      }
-      if (provision_file()->exists($core8_contrib_dir)->status() &&
-          provision_file()->exists($core8_version_id)->status() &&
-          !provision_file()->exists($core9_version_id)->status() &&
-          !provision_file()->exists($core8_contrib_symlink)->status()) {
-        provision_file()->symlink($core8_contrib_dir, $core8_contrib_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-      if (provision_file()->exists($core8_contrib_dir)->status() &&
-          provision_file()->exists($core8_version_id)->status()) {
-        if (provision_file()->exists($core9_contrib_symlink)->status()) {
-          // Rename core9_contrib_symlink to core9_contrib_dot if exists in D8 platform
-          rename($core9_contrib_symlink, $core9_contrib_dot);
-          drush_log(dt('D9 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core9_contrib_dot)), 'message');
-        }
-        if (provision_file()->exists($core10_contrib_symlink)->status()) {
-          // Rename core10_contrib_symlink to core10_contrib_dot if exists in D8 platform
-          rename($core10_contrib_symlink, $core10_contrib_dot);
-          drush_log(dt('D10 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core10_contrib_dot)), 'message');
-        }
-      }
-
-      // Add symlink to BOA specific contrib in Drupal 9.
-      // Check if static copy exists first
-      if (is_dir($core9_contrib_symlink) && !is_link($core9_contrib_symlink)) {
-        // Run cleanup of previous dot dir if exists
-        // and current contrib is not a symlink again.
-        if (provision_file()->exists($core9_contrib_dot)->status()) {
-          _provision_recursive_delete($core9_contrib_dot);
-          drush_log(dt('Static dot-copy of BOA contrib removed from: !contrib', array('!contrib' => $core9_contrib_dot)), 'message');
-        }
-        // Rename static contrib to dot dir if exists
-        rename($core9_contrib_symlink, $core9_contrib_dot);
-        drush_log(dt('Static BOA contrib renamed to dot-copy : !dot', array('!dot' => $core9_contrib_dot)), 'message');
-      }
-      if (provision_file()->exists($core9_contrib_dir)->status() &&
-          provision_file()->exists($core9_version_id)->status() &&
-          provision_file()->exists($core10_version_f)->status() &&
-          !provision_file()->exists($core9_contrib_symlink)->status()) {
-        provision_file()->symlink($core9_contrib_dir, $core9_contrib_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-      if (provision_file()->exists($core9_contrib_dir)->status() &&
-          provision_file()->exists($core9_version_id)->status()) {
-        if (provision_file()->exists($core8_contrib_symlink)->status()) {
-          // Rename core8_contrib_symlink to core8_contrib_dot if exists in D9 platform
-          rename($core8_contrib_symlink, $core8_contrib_dot);
-          drush_log(dt('D8 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core8_contrib_dot)), 'message');
-        }
-        if (provision_file()->exists($core10_contrib_symlink)->status()) {
-          // Rename core10_contrib_symlink to core10_contrib_dot if exists in D9 platform
-          rename($core10_contrib_symlink, $core10_contrib_dot);
-          drush_log(dt('D10 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core10_contrib_dot)), 'message');
-        }
-      }
-
-      // Add symlink to BOA specific contrib in Drupal 10.
-      // Check if static copy exists first
-      if (is_dir($core10_contrib_symlink) && !is_link($core10_contrib_symlink)) {
-        // Run cleanup of previous dot dir if exists
-        // and current contrib is not a symlink again.
-        if (provision_file()->exists($core10_contrib_dot)->status()) {
-          _provision_recursive_delete($core10_contrib_dot);
-          drush_log(dt('Static dot-copy of BOA contrib removed from: !contrib', array('!contrib' => $core10_contrib_dot)), 'message');
-        }
-        // Rename static contrib to dot dir if exists
-        rename($core10_contrib_symlink, $core10_contrib_dot);
-        drush_log(dt('Static BOA contrib renamed to dot-copy : !dot', array('!dot' => $core10_contrib_dot)), 'message');
-      }
-      if (provision_file()->exists($core10_contrib_dir)->status() &&
-          provision_file()->exists($core9_version_id)->status() &&
-          !provision_file()->exists($core10_version_f)->status() &&
-          !provision_file()->exists($core10_contrib_symlink)->status()) {
-        provision_file()->symlink($core10_contrib_dir, $core10_contrib_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-      if (provision_file()->exists($core10_contrib_dir)->status() &&
-          provision_file()->exists($core9_version_id)->status() &&
-          !provision_file()->exists($core10_version_f)->status()) {
-        if (provision_file()->exists($core8_contrib_symlink)->status()) {
-          // Rename core8_contrib_symlink to core8_contrib_dot if exists in D10 platform
-          rename($core8_contrib_symlink, $core8_contrib_dot);
-          drush_log(dt('D8 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core8_contrib_dot)), 'message');
-        }
-        if (provision_file()->exists($core9_contrib_symlink)->status()) {
-          // Rename core9_contrib_symlink to core9_contrib_dot if exists in D10 platform
-          rename($core9_contrib_symlink, $core9_contrib_dot);
-          drush_log(dt('D9 BOA contrib renamed to dot-copy : !dot', array('!dot' => $core9_contrib_dot)), 'message');
-        }
-      }
-
-      // Add symlink to BOA specific JS Callback Handler support in Pressflow 6.
-      if (provision_file()->exists($core6_contrib_js_file)->status() &&
-          provision_file()->exists($core6_version_id)->status() &&
-          !provision_file()->exists($core6_contrib_js_symlink)->status()) {
-        provision_file()->symlink($core6_contrib_js_file, $core6_contrib_js_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-
-      // Add symlink to BOA specific JS Callback Handler support in Drupal 7.
-      if (provision_file()->exists($core7_contrib_js_file)->status() &&
-         provision_file()->exists($core7_version_id)->status() &&
-         !provision_file()->exists($core7_contrib_js_symlink)->status()) {
-        provision_file()->symlink($core7_contrib_js_file, $core7_contrib_js_symlink)
-          ->succeed('Created symlink @path to @target')
-          ->fail('Could not create symlink @path to @target: @reason');
-      }
-    }
     provision_drupal_push_site();
   }
   elseif (d()->type === 'site') {
