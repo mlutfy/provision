@@ -553,7 +553,6 @@ function provision_process($command, $cwd = null, $label = 'Process', $env = arr
  */
 function provision_get_drupal_core_version() {
   $core_path = d()->root . '/core/lib/Drupal.php';
-
   if (file_exists($core_path)) {
     $file_contents = file_get_contents($core_path);
     preg_match('/const VERSION = \'(.*?)\';/', $file_contents, $matches);
@@ -563,7 +562,19 @@ function provision_get_drupal_core_version() {
       return $drupal_version;
     }
   }
-
+  else {
+    // Drupal 7 or older
+    $core_path = d()->root . '/includes/bootstrap.inc';
+    if (file_exists($core_path)) {
+      $file_contents = file_get_contents($core_path);
+      preg_match("/define\('VERSION', \'(\d)\.\d+\'\);/", $file_contents, $matches);
+      if (!empty($matches[1])) {
+        $drupal_version = $matches[1];
+        return $drupal_version;
+      }
+    }
+  }
+  drush_set_error('PROVISION_DRUPALVERSION_ERROR', "Could not determine the Drupal core version in provision_get_drupal_core_version()");
   return NULL;
 }
 
