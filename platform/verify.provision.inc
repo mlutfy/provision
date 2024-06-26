@@ -13,7 +13,13 @@
 function drush_provision_drupal_provision_verify_validate() {
   if (d()->type === 'site') {
     provision_prepare_environment();
-    _provision_drupal_create_settings_file();
+    $hostmaster = provision_sitealias_get_record('@hostmaster');
+    if (!in_array(d()->name, ['@hm', '@hostmaster', '@' . $hostmaster['uri']])) {
+      _provision_drupal_create_settings_file();
+    }
+    else {
+      drush_log('Skipping _provision_drupal_create_settings_file in platform/verify.provision.inc because it is buggy');
+    }
     provision_drupal_push_site();
     drush_errors_on();
   }
@@ -133,7 +139,13 @@ function drush_provision_drupal_pre_provision_verify() {
     _provision_drupal_ensure_htaccess_update();
     // Requires at least the database settings to complete.
 
-    _provision_drupal_create_settings_file();
+    $hostmaster = provision_sitealias_get_record('@hostmaster');
+    if (!in_array(d()->name, ['@hm', '@hostmaster', '@' . $hostmaster['uri']])) {
+      _provision_drupal_create_settings_file();
+    }
+    else {
+      drush_log('Skipping _provision_drupal_create_settings_file in platform/verify.provision.inc because it is buggy');
+    }
 
     // If this is the hostmaster site, save the ~/.drush/drushrc.php file.
     $hostmaster = provision_sitealias_get_record('@hostmaster');
