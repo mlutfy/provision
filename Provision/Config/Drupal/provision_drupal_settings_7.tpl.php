@@ -28,72 +28,6 @@ if (isset($_SERVER['SITE_SUBDIR']) && isset($_SERVER['RAW_HOST'])) {
 }
 <?php endif; ?>
 
-<?php if ($this->cloaked): ?>
-if (isset($_SERVER['db_name'])) {
-  /**
-   * The database credentials are stored in the Apache or Nginx vhost config
-   * of the associated site with SetEnv (fastcgi_param in Nginx) parameters.
-   * They are called here with $_SERVER environment variables to
-   * prevent sensitive data from leaking to site administrators
-   * with PHP access, that potentially might be of other sites in
-   * Drupal's multisite set-up.
-   * This is a security measure implemented by the Aegir project.
-   */
-  $databases['default']['default'] = array(
-    'driver' => $_SERVER['db_type'],
-    'database' => $_SERVER['db_name'],
-    'username' => $_SERVER['db_user'],
-    'password' => $_SERVER['db_passwd'],
-    'host' => $_SERVER['db_host'],
-    /* Drupal interprets $databases['db_port'] as a string, whereas Drush sees
-     * it as an integer. To maintain consistency, we cast it to a string. This
-     * should probably be fixed in Drush.
-     */
-    'port' => (string) $_SERVER['db_port'],
-<?php if ($utf8mb4_is_configurable && $utf8mb4_is_supported): ?>
-    'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_unicode_ci',
-<?php endif; ?>
-  );
-  $db_url['default'] = $_SERVER['db_type'] . '://' . $_SERVER['db_user'] . ':' . $_SERVER['db_passwd'] . '@' . $_SERVER['db_host'] . ':' . $_SERVER['db_port'] . '/' . $_SERVER['db_name'];
-}
-
-  /**
-   * Now that we used the credentials from the apache environment, we
-   * don't need them anymore. Clear them from apache and the _SERVER
-   * array, otherwise they show up in phpinfo() and other friendly
-   * places.
-   */
-  if (function_exists('apache_setenv')) {
-    apache_setenv('db_type', null);
-    apache_setenv('db_user', null);
-    apache_setenv('db_passwd', null);
-    apache_setenv('db_host', null);
-    apache_setenv('db_port', null);
-    apache_setenv('db_name', null);
-    // no idea why they are also in REDIRECT_foo, but they are
-    apache_setenv('REDIRECT_db_type', null);
-    apache_setenv('REDIRECT_db_user', null);
-    apache_setenv('REDIRECT_db_passwd', null);
-    apache_setenv('REDIRECT_db_host', null);
-    apache_setenv('REDIRECT_db_port', null);
-    apache_setenv('REDIRECT_db_name', null);
-  }
-  unset($_SERVER['db_type']);
-  unset($_SERVER['db_user']);
-  unset($_SERVER['db_passwd']);
-  unset($_SERVER['db_host']);
-  unset($_SERVER['db_port']);
-  unset($_SERVER['db_name']);
-  unset($_SERVER['REDIRECT_db_type']);
-  unset($_SERVER['REDIRECT_db_user']);
-  unset($_SERVER['REDIRECT_db_passwd']);
-  unset($_SERVER['REDIRECT_db_host']);
-  unset($_SERVER['REDIRECT_db_port']);
-  unset($_SERVER['REDIRECT_db_name']);
-
-<?php else: ?>
-
   $databases['default']['default'] = array(
     'driver' => "<?php print $this->creds['db_type']; ?>",
     'database' => "<?php print $this->creds['db_name']; ?>",
@@ -113,8 +47,6 @@ if (isset($_SERVER['db_name'])) {
     '%db_host' => $this->creds['db_host'],
     '%db_port' => $this->creds['db_port'],
     '%db_name' => $this->creds['db_name'])); ?>";
-
-<?php endif; ?>
 
   $profile = "<?php print $this->profile ?>";
   $install_profile = "<?php print $this->profile ?>";
