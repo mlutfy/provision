@@ -211,10 +211,12 @@ function _provision_drupal_system_map() {
  * Find available profiles on this platform.
  */
 function _provision_find_profiles() {
-  $profiles = array();
+  $profiles = [];
 
-  include_once('includes/install.inc');
-  $profiles_subdirs[] = "./profiles";
+  // SYMBIOTIC: For some reason this function looked for profiles under
+  // /var/aegir/hostmaster. Also removed a bit of code that seemed overkill
+  // or risky, such as doing includes of profile files.
+  $profiles_subdirs[] = d()->root . "/profiles";
 
   foreach($profiles_subdirs as $profiles_subdir) {
     if (!$dir = opendir($profiles_subdir)) {
@@ -223,14 +225,14 @@ function _provision_find_profiles() {
     }
 
     while (FALSE !== ($name = readdir($dir))) {
-      $languages = array();
+      $languages = [];
       if (($name == '..') || ($name == '.') || (!is_dir("$profiles_subdir/$name"))) {
         continue;
       }
 
       $profile = new stdClass();
       $profile->name = $name;
-      $profile->info = array();
+      $profile->info = [];
 
       $info_file = "$profiles_subdir/$name/$name.info";
       if (file_exists($info_file)) {
@@ -240,18 +242,8 @@ function _provision_find_profiles() {
           continue;
         }
       }
+
       $profile->filename = $info_file;
-
-      // Include code from the profile.
-      if (file_exists($profile_file = "$profiles_subdir/$name/$name.profile")) {
-        require_once($profile_file);
-      }
-
-      $func = $profile->name . "_profile_details";
-      if (function_exists($func)) {
-        $profile->info = array_merge($profile->info, $func());
-      }
-
       $profile_path = $profiles_subdir . '/' . $name;
       $profile->info['languages'] = _provision_find_profile_languages($profile_path);
 
@@ -261,7 +253,6 @@ function _provision_find_profiles() {
         $profile->info['old_short_name'] = 'default';
       }
       $profile->info['old_short_name'] = isset($profile->info['old_short_name']) ? $profile->info['old_short_name'] : 'standard';
-
 
       $profiles[$name] = $profile;
       drush_log(dt('Found install profile %name', array('%name' => $name)), 'info');
@@ -275,13 +266,13 @@ function _provision_find_profiles() {
  */
 function _provision_drupal_search_paths($scope, $key = '', $type = 'modules') {
   $searchpaths = array();
-  $drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT');
+  $drupal_root = d()->root;
   switch ($scope) {
-    case 'base' :
+    case 'base':
       $searchpaths[] = sprintf("%s/%s", $drupal_root, $type);
       $searchpaths[] = sprintf("%s/sites/all/%s", $drupal_root, $type);
       break;
-    default :
+    default:
       if ($key) {
         $searchpaths[] = sprintf("%s/%s/%s/%s", $drupal_root, $scope, $key, $type);
       }
