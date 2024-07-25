@@ -110,6 +110,9 @@ function provision_class_file($class_name) {
  *
  * We needed to fork this from drush core to handle the case sensitivity in host names.
  *
+ * @deprecated
+ *   Remote sync has been removed from this fork of Provision.
+ *
  * @param host
  *   A hostname, 'localhost' or '127.0.0.1'.
  *
@@ -175,11 +178,13 @@ function provision_is_hostmaster_site() {
 /**
  * return the FQDN of the machine or provided host
  *
- * this replicates hostname -f, which is not portable
+ * Only 'hostname -f' really works, especially with IPv6-only
+ * or other OS variations. Apparently this is not portable,
+ * but we only support Debian.
  */
 function provision_fqdn($host = NULL) {
-  // SYMBIOTIC This works on IPv6-only hosts
-  return gethostbyaddr('127.0.1.1');
+  $fqdn = shell_exec('hostname -f');
+  return trim($fqdn);
 }
 
 /**

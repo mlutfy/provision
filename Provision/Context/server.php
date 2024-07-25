@@ -150,12 +150,7 @@ class Provision_Context_server extends Provision_Context {
    *   out and error.
    */
   function shell_exec($command) {
-    if (provision_is_local_host($this->remote_host)) {
-      return drush_shell_exec(escapeshellcmd($command));
-    }
-    else {
-      return drush_shell_exec('ssh ' . drush_get_option('ssh-options', '-o PasswordAuthentication=no') . ' %s %s', $this->script_user . '@' . $this->remote_host, escapeshellcmd($command));
-    }
+    return drush_shell_exec(escapeshellcmd($command));
   }
 
   /**
@@ -170,42 +165,7 @@ class Provision_Context_server extends Provision_Context {
    */
   function sync($path = NULL, $additional_options = array()) {
     if (!provision_is_local_host($this->remote_host)) {
-      if (is_null($path)) {
-        $path = $this->config_path;
-      }
-
-      if (provision_file()->exists($path)->status()) {
-        $default_options = array(
-          'relative' => TRUE,
-          'keep-dirlinks' => TRUE,
-          'omit-dir-times' => TRUE,
-        );
-        $global_extra_options = drush_get_option('global_sync_options', array());
-        $options = array_merge($default_options, $additional_options, $global_extra_options);
-
-
-        // We need to do this due to how drush creates the rsync command.
-        // If the option is present at all , even if false or null, it will
-        // add it to the command.
-        if (!isset($additional_options['no-delete']) || $additional_options['no-delete'] == FALSE ) {
-          $options['delete'] = TRUE;
-        }
-
-        if (drush_core_call_rsync(escapeshellarg($path), escapeshellarg($this->script_user . '@' . $this->remote_host . ':/'), $options, TRUE, FALSE)) {
-          drush_log(dt('@path has been synced to remote server @remote_host.', array('@path' => $path, '@remote_host' => $this->remote_host)), 'info');
-        }
-        else {
-          drush_set_error('PROVISION_FILE_SYNC_FAILED', dt('@path could not be synced to remote server @remote_host. Changes might not be available until this has been done. (error: %msg)', array('@path' => $path, '@remote_host' => $this->remote_host, '%msg' => join("\n", drush_shell_exec_output()))));
-        }
-      }
-      else { // File does not exist, remove it.
-        if ($this->shell_exec('rm -rf ' . escapeshellarg($path))) {
-          drush_log(dt('@path has been removed from remote server @remote_host.', array('@path' => $path, '@remote_host' => $this->remote_host)), 'info');
-        }
-        else {
-          drush_set_error('PROVISION_FILE_SYNC_FAILED', dt('@path could not be removed from remote server @remote_host. Changes might not be available until this has been done. (error: %msg)', array('@path' => $path, '@remote_host' => $this->remote_host, '%msg' => join("\n", drush_shell_exec_output()))));
-        }
-      }
+      drush_log('Provision_Context_server::sync: detected remote host, but remote sync has been removed from this fork of provision. It might be a bug? remote_host=' . $this->remote_host . ', provision_fqdn=' . provision_fqdn() . ', uname=' . strtolower(php_uname('n')), 'warning');
     }
   }
 
@@ -221,33 +181,7 @@ class Provision_Context_server extends Provision_Context {
    */
   function fetch($path, $additional_options = array()) {
     if (!provision_is_local_host($this->remote_host)) {
-      if (provision_file()->exists($path)->status()) {
-        $options = array_merge(array(
-          'omit-dir-times' => TRUE,
-        ), $additional_options);
-
-        // We need to do this due to how drush creates the rsync command.
-        // If the option is present at all, even if false or null, it will
-        // add it to the command.
-        if (!isset($additional_options['no-delete']) || $additional_options['no-delete'] == FALSE ) {
-          $options['delete'] = TRUE;
-        }
-
-        if (drush_core_call_rsync(escapeshellarg($this->script_user . '@' . $this->remote_host . ':/') . $path, $path, $options, TRUE, FALSE)) {
-          drush_log(dt('@path has been fetched from remote server @remote_host.', array(
-            '@path' => $path,
-            '@remote_host' => $this->remote_host))
-          );
-        }
-        else {
-          drush_set_error('PROVISION_FILE_SYNC_FAILED', dt('@path could not be fetched from remote server @remote_host.' .
-            ' Changes might not be available until this has been done. (error: %msg)', array(
-              '@path' => $path,
-              '@remote_host' => $this->remote_host,
-              '%msg' => join("\n", drush_shell_exec_output())))
-          );
-        }
-      }
+      drush_log('Provision_Context_server::fetch: detected remote host, but remote sync has been removed from this fork of provision. It might be a bug? remote_host=' . $this->remote_host . ', provision_fqdn=' . provision_fqdn() . ', uname=' . strtolower(php_uname('n')), 'warning');
     }
   }
 
