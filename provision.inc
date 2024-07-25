@@ -549,14 +549,13 @@ function provision_process($command, $cwd = null, $label = 'Process', $env = arr
 }
 
 /**
- * For Drupal 8/9/10
+ * For Drupal 7/8/9/10
  */
 function provision_get_drupal_core_version() {
   $core_path = d()->root . '/core/lib/Drupal.php';
   if (file_exists($core_path)) {
     $file_contents = file_get_contents($core_path);
     preg_match('/const VERSION = \'(.*?)\';/', $file_contents, $matches);
-
     if (!empty($matches[1])) {
       $drupal_version = $matches[1];
       return $drupal_version;
@@ -567,7 +566,9 @@ function provision_get_drupal_core_version() {
     $core_path = d()->root . '/includes/bootstrap.inc';
     if (file_exists($core_path)) {
       $file_contents = file_get_contents($core_path);
-      preg_match("/define\('VERSION', \'(\d)\.\d+\'\);/", $file_contents, $matches);
+      // Versions can have a -dev in them, so only match the numeric parts
+      // Ex: if it is 7.123-dev, then match 7.123 and return only "7"
+      preg_match("/define\('VERSION', \'(\d)\.\d+/", $file_contents, $matches);
       if (!empty($matches[1])) {
         $drupal_version = $matches[1];
         return $drupal_version;
