@@ -101,78 +101,46 @@ function drush_provision_drupal_provision_install() {
   // Still somewhat experimental (works for D10, and hostmaster sort of, but not much tested otherwise)
   $site_name = ltrim(d()->name, '@');
 
-  if ($site_name == 'hostmaster' || version_compare($drupal_core_version, 10, '>=')) {
-    drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
-    chdir(d()->site_path);
-    // @todo profile?
-    $client_email = drush_get_option('client_email');
+  // Tested with: hostmaster, Drupal 10, Drupal 7
+  drush_log('provision_install: chdir: ' . d()->site_path, 'ok');
+  chdir(d()->site_path);
 
-    $aegir_db_user = drush_get_option('db_user');
-    $aegir_db_pass = drush_get_option('db_passwd');
-    $aegir_db_port = drush_get_option('db_port');
-    $aegir_db_host = drush_get_option('db_host');
-    $aegir_db_name = drush_get_option('db_name');
+  $client_email = drush_get_option('client_email');
+  $profile = drush_get_option('profile') ?? '';
 
-    // Workaround because d7 complains about this address
-    if ($client_email == 'root@localhost') {
-      $client_email = 'root@' . gethostbyaddr(gethostbyname(gethostname()));
-    }
-    // And somehow for d7 hostmaster, we have this instead of the FQDN
-    if ($site_name == 'hostmaster') {
-      $site_name = gethostbyaddr(gethostbyname(gethostname()));
-    }
+  $aegir_db_user = drush_get_option('db_user');
+  $aegir_db_pass = drush_get_option('db_passwd');
+  $aegir_db_port = drush_get_option('db_port');
+  $aegir_db_host = drush_get_option('db_host');
+  $aegir_db_name = drush_get_option('db_name');
 
-    $db = "mysql://$aegir_db_user:$aegir_db_pass@$aegir_db_host:$aegir_db_port/$aegir_db_name";
-    $command = '../../../vendor/drush/drush/drush site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
-    if (version_compare($drupal_core_version, 10, '<')) {
-      $command = 'drush -y site-install --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
-    }
-    drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
-    $output = system($command, $retval);
-    drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
-
-    // Fix permissions
-    drush_log(dt("Drupal: running fix-drupal-site-ownership.sh and permissions..."), 'ok');
-    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-ownership.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
-    drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-permissions.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
-    drush_log(dt("Drupal: finished running fix-drupal-site-ownership.sh and permissions"), 'ok');
-    return;
+  if ($profile) {
+    $profile = escapeshellarg($profile);
   }
 
-  drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
-
-  // Install site according to install_method.
-  drush_log(dt('Installing site with the "!method" method.', array(
-    '!method' => d()->install_method,
-  )), 'ok');
-
-  // Run Drupal installation if option was specified
-  if (d()->install_method == 'profile') {
-
-    // call a backend task to do the actual installation.
-    $result = provision_backend_invoke(d()->name, "provision-install-backend", array(), array('client_email' => drush_get_option('client_email')));
-
-    // pass the login link back to the front end.
-    drush_set_option('login_link', $result['context']['login_link']);
-
-    if (drush_drupal_major_version() < 12) {
-      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_FULL);
-    }
-    else {
-      drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION);
-      drush_log("Skipping FULL bootstrap for drupal 12+ in drush_provision_drupal_provision_install");
-    }
-
-    drush_set_option('profile_installed', TRUE, 'site');
+  // Workaround because d7 complains about this address
+  if ($client_email == 'root@localhost') {
+    $client_email = 'root@' . gethostbyaddr(gethostbyname(gethostname()));
   }
-  // If install_method is 'manual', do nothing.
-  elseif (d()->install_method == 'manual') {
-    drush_set_option('login_link', 'http://' . d()->uri . '/install.php');
+  // And somehow for d7 hostmaster, we have this instead of the FQDN
+  if ($site_name == 'hostmaster') {
+    $site_name = gethostbyaddr(gethostbyname(gethostname()));
   }
 
-  drush_set_option('installed', TRUE, 'site');
-  _provision_drupal_maintain_aliases();
+  $db = "mysql://$aegir_db_user:$aegir_db_pass@$aegir_db_host:$aegir_db_port/$aegir_db_name";
+  $command = '../../../vendor/drush/drush/drush site-install ' . $profile . ' --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+  if (version_compare($drupal_core_version, 10, '<')) {
+    $command = 'drush -y site-install ' . $profile . ' --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
+  }
+  drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
+  $output = system($command, $retval);
+  drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
 
+  // Fix permissions
+  drush_log(dt("Drupal: running fix-drupal-site-ownership.sh and permissions..."), 'ok');
+  drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-ownership.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
+  drush_shell_exec("sudo --non-interactive /usr/local/bin/fix-drupal-site-permissions.sh --site-path=%s --script-user=%s --web-group=%s", d()->site_path, d()->server->script_user, d()->server->web_group);
+  drush_log(dt("Drupal: finished running fix-drupal-site-ownership.sh and permissions"), 'ok');
 }
 
 /**
