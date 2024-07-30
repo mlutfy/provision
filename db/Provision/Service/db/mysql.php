@@ -142,15 +142,16 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   }
 
   function import_dump($dump_file, $creds) {
-    if (empty($creds)) {
-      $creds = $this->generate_site_credentials();
-    }
-    extract($creds);
-    $cmd = sprintf("mysql --defaults-file=/dev/fd/3 --force %s", escapeshellcmd($db_name));
-    $success = $this->safe_shell_exec($cmd, $db_host, $db_user, $db_passwd, $dump_file);
-    drush_log(sprintf("Importing database using command: %s", $cmd));
-    if (!$success) {
-      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", array('%output' => $this->safe_shell_exec_output)));
+    chdir(d()->site_path);
+    $output = [];
+    // This works on drush 12.5, otherwise we may need to check the core version for 'sql:cli'?
+    // Before using drush, this function used to call mysql directly, with
+    // named pipes (safe_shell_exec), and it would be difficult to debug.
+    $cmd = 'drush sql-cli < ' . $dump_file;
+    drush_log(sprintf("Importing database using command: %s", $cmd), 'info');
+    $ret = exec($cmd, $output);
+    if ($ret) {
+      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", ['%output' => implode('; ', $output)]));
     }
   }
 
@@ -386,7 +387,7 @@ port=%s
       // XXX: failed to execute? unsure when this happens
       $return_value = -1;
     }
-  return ($return_value == 0);
+    return ($return_value == 0);
   }
 
   function utf8mb4_is_supported() {
