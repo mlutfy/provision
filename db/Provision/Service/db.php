@@ -333,6 +333,14 @@ class Provision_Service_db extends Provision_Service {
         }
       }
     }
+    else {
+      // This still needs to happen otherwise sometimes the drushrc.php is trashed
+      foreach ($keys as $key) {
+        $v = drush_get_option($key);
+        $creds[$key] = $v;
+	$_SERVER[$key] = $v;
+      }
+    }
 
     // Ugly workaround because sometimes the data is in _SERVER but not elsewhere
     if (empty($creds['db_name']) && !empty($_SERVER['db_name'])) {

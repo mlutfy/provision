@@ -216,6 +216,10 @@ function provision_save_server_data() {
 function provision_save_site_data() {
   if (!drush_get_error()) {
     $data = d()->service('db')->fetch_site_credentials();
+    if (empty($data['db_name'])) {
+      drush_log('provision_save_site_data: db_name is empty, not saving drushrc.php', 'warning');
+      return;
+    }
     $config = new Provision_Config_Drushrc_Site(d()->name, $data);
     $config->write();
     provision_drupal_push_site();
