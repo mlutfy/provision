@@ -1,9 +1,6 @@
 <?php
 
 function drush_db_pre_provision_backup() {
-  // Allow writing to the site_path for the dump
-  provision_file()->chmod(d()->site_path, 0755);
-
   d()->service('db')->generate_dump();
 }
 
