@@ -147,10 +147,10 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
     // This works on drush 12.5, otherwise we may need to check the core version for 'sql:cli'?
     // Before using drush, this function used to call mysql directly, with
     // named pipes (safe_shell_exec), and it would be difficult to debug.
-    $cmd = 'drush sql-cli < ' . $dump_file;
+    $cmd = 'drush --uri ' . d()->uri . ' sql-cli < ' . $dump_file;
     drush_log(sprintf("Importing database using command: %s", $cmd), 'info');
     $ret = exec($cmd, $output);
-    if ($ret) {
+    if ($ret === FALSE) {
       drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", ['%output' => implode('; ', $output)]));
     }
   }
@@ -291,67 +291,34 @@ port=%s
     // Set the umask to 077 so that the dump itself is non-readable by the
     // webserver.
     umask(0077);
+    // Allow writing to the site_path for the dump
+    provision_file()->chmod(d()->site_path, 0755);
 
-    // If a database uses Global Transaction IDs (GTIDs), information about this is written to the dump
-    // file by default.  Trying to import such a dump during a clone or migrate will fail.  So use the
-    // '--set-gtid-purged=OFF' option to suppress the restoration of GTIDs.  GTIDs were added in MySQL version 5.6
-    if (drush_get_option('provision_mysqldump_suppress_gtid_restore', FALSE)) {
-      $gtid_option = '--set-gtid-purged=OFF';
+    // We chdir and use --uri because we have issues with D10 aliases
+    chdir(d()->site_path);
+
+    $dump_file = d()->site_path . '/database.sql';
+    $cmd = 'drush --uri ' . d()->uri . ' sql-dump > ' . $dump_file;
+    drush_log('sql-dump command: ' . $cmd, 'ok');
+    $output = [];
+    $ret = exec($cmd, $output);
+
+    if ($ret === FALSE) {
+      drush_set_error('PROVISION_DB_BACKUP_FAILED', dt("Database backup failed: %output", ['%output' => implode('; ', $output)]));
     }
     else {
-      $gtid_option = '';
+      drush_log('sql-dump output: ' . implode('; ', $output), 'ok');
     }
 
-    // Make sure that the drush options are correctly set
-    $creds = $this->fetch_site_credentials();
-
-    // Mixed copy-paste of drush_shell_exec and provision_shell_exec.
-    $cmd = sprintf("mysqldump --defaults-file=/dev/fd/3 %s --no-tablespaces --no-autocommit --skip-add-locks --single-transaction --quick --hex-blob %s", $gtid_option, escapeshellcmd(drush_get_option('db_name')));
-
-    // Fail if db file already exists.
-    $dump_file = fopen(d()->site_path . '/database.sql', 'x');
-    if ($dump_file === FALSE) {
-      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
-    }
-    else {
-      $pipes = array();
-      $descriptorspec = $this->generate_descriptorspec();
-      $process = proc_open($cmd, $descriptorspec, $pipes);
-      if (is_resource($process)) {
-        fwrite($pipes[3], $this->generate_mycnf());
-        fclose($pipes[3]);
-
-        // At this point we have opened a pipe to that mysqldump command. Now
-        // we want to read it one line at a time and do our replacements.
-        while (($buffer = fgets($pipes[1], 4096)) !== FALSE) {
-          $this->filter_line($buffer);
-          // Write the resulting line in the backup file.
-          if ($buffer && fwrite($dump_file, $buffer) === FALSE) {
-            drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump'));
-          }
-        }
-        // Close stdout.
-        fclose($pipes[1]);
-        // Catch errors returned by mysqldump.
-        $err = fread($pipes[2], 4096);
-        // Close stderr as well.
-        fclose($pipes[2]);
-        if (proc_close($process) != 0) {
-          drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not write database backup file mysqldump (command: %command) (error: %msg)', array('%msg' => $err, '%command' => $cmd)));
-        }
-      }
-      else {
-        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not run mysqldump for backups'));
-      }
-
-      $dump_size_too_small = filesize(d()->site_path . '/database.sql') < 1024;
-      if (($dump_size_too_small) && !drush_get_option('force', FALSE)) {
-        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (error: %msg)', array('%msg' => $err)));
-      }
+    $dump_size = filesize($dump_file);
+    if ($dump_size < 1024 && !drush_get_option('force', FALSE)) {
+      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (filesize: %size)', array('%size' => $dump_size)));
     }
 
-    // Reset the umask to normal permissions.
+    // Reset the umask to normal permissions
     umask(0022);
+    // Reset the permissions on the site directory
+    provision_file()->chmod(d()->site_path, 0555);
   }
 
   /**
