@@ -585,6 +585,30 @@ function provision_get_drupal_core_version() {
 }
 
 /**
+ * Yet another exec() function. Displays the output using drush_log().
+ *
+ * Returns false if it failed.
+ */
+function provision_exec($command) {
+  drush_log(dt("Provision: running: %command", ['%command' => $command]), 'ok');
+  $output = [];
+  exec($command, $output, $retval);
+  $loglevel = $retval === 0 ? 'success' : 'warning';
+
+  foreach ($output as $line) {
+    if ($line) {
+      // Detect the log level from the output, if any (ex: for 'drush cc all')
+      $loglevel = preg_match('/(warning|error)/', $line) ? 'warning' : 'ok';
+      // Then strip it out, because it makes the output look weird
+      $line = preg_replace('/\s{10}.*$/', '', $line);
+      drush_log("Output: $line", $loglevel);
+    }
+  }
+
+  return $retval === 0;
+}
+
+/**
  * Retuns the major Drupal version
  */
 function provision_get_drupal_core_major_version() {

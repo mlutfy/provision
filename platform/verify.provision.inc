@@ -170,22 +170,16 @@ function drush_provision_drupal_post_provision_verify() {
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
-    $drupal_core_version = provision_get_drupal_core_version();
+    $command = "drush cr 2>&1";
 
-    if ($drupal_core_version && version_compare($drupal_core_version, 8, '>=')) {
-      $command = "drush cr";
-      drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
-      chdir(d()->site_path);
-      $output = system($command, $retval);
-      drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
+    if (provision_get_drupal_core_major_version() < 8) {
+      $command = "drush cc all 2>&1";
     }
-    else {
-      $command = "drush cc all";
-      drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
-      chdir(d()->site_path);
-      $output = system($command, $retval);
-      drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
-    }
+
+    drush_log(dt("Drupal: Flushing cache..."), 'ok');
+    chdir(d()->site_path);
+    provision_exec($command);
+
     drush_set_option('installed', TRUE, 'site');
     _provision_client_create_symlink();
     drush_include_engine('drupal', 'cron_key');
