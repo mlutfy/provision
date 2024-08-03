@@ -140,6 +140,15 @@ class Provision_FileSystem extends Provision_ChainedState {
 
     $this->tokens = array('@path' => $path, '@perm' => sprintf('%o', $perms));
 
+    // Check if perms need any changing. This will avoid flushing the clearstatcache()
+    // unless necessary, and avoid noizy log messages. It might be weird when doing a
+    // recursive chmod, but this only happens twice during install, and probably should
+    // not be used anyway.
+    $oldperms = substr(sprintf('%o', fileperms($path)), -4);
+    if ($oldperms == sprintf('%04o', $perms)) {
+      return $this;
+    }
+
     $func = ($recursive) ? array($this, '_chmod_recursive') : 'chmod';
     if (!@call_user_func($func, $path, $perms)) {
       $this->tokens['@reason'] = dt('chmod to @perm failed on @path', array('@perm' => sprintf('%o', $perms), '@path' => $path));
@@ -170,6 +179,11 @@ class Provision_FileSystem extends Provision_ChainedState {
     if (is_link($path)) {
       return $this;
     } 
+
+    // Check if chmod needs to happen, to reduce noize in logs and clearstatcache()
+    if ($owner == provision_posix_username(fileowner($path))) {
+      return $this;
+    }
 
     $func = ($recursive) ? array($this, '_chown_recursive') : 'chown';
     if ($owner = provision_posix_username($owner)) {
@@ -207,6 +221,12 @@ class Provision_FileSystem extends Provision_ChainedState {
     if (is_link($path)) {
       return $this;
     } 
+
+    // Check if chgrp needs to happen, to reduce noize in logs and clearstatcache()
+    $group = provision_posix_groupname($gid);
+    if ($group == provision_posix_groupname(filegroup($path))) {
+      return $this;
+    }
 
     $func = ($recursive) ? array($this, '_chgrp_recursive') : 'chgrp';
     if ($group = provision_posix_groupname($gid)) {
@@ -373,9 +393,7 @@ class Provision_FileSystem extends Provision_ChainedState {
    * Small helper function for creation of configuration directories.
    */
   function create_dir($path, $name, $perms) {
-    $exists = $this->exists($path)
-      ->succeed($name . ' path @path exists.')
-      ->status();
+    $exists = $this->exists($path)->status();
 
     if (!$exists) {
       $exists = $this->mkdir($path)
@@ -394,7 +412,6 @@ class Provision_FileSystem extends Provision_ChainedState {
         ->fail($name . ' permissions of @path could not be changed to @perm.', 'DRUSH_PERM_ERROR');
 
       $this->writable($path)
-        ->succeed($name . ' path @path is writable.')
         ->fail($name . ' path @path is not writable.', 'DRUSH_PERM_ERROR');
     }
 

@@ -408,9 +408,8 @@ function _provision_drupal_create_directories($url = NULL) {
   // TODO: Figure out a better way to do this.
   // [ML] This does not seem necessary if we run the fix-permissions bash script
   // then either Drupal or CiviCRM will not have problems creating the required directories
-  drush_log(dt('_provision_drupal_create_directories: creating directories...'), 'ok');
+  drush_log(dt('_provision_drupal_create_directories: running on: ' . d()->site_path . ' using root: ' . d()->root), 'ok');
   provision_file()->chmod(d()->site_path, 0755);
-  drush_log('_provision_drupal_create_directories: chdir ' . d()->root, 'ok');
   chdir(d()->root);
   drush_command_invoke_all_ref('provision_drupal_create_directories_alter', $mkdir, $url);
   drush_command_invoke_all_ref('provision_drupal_chgrp_directories_alter', $chgrp, $url);
