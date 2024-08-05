@@ -9,8 +9,7 @@
 class Provision_Config_Http_Ssl_Site extends Provision_Config_Http_Site {
   public $template = 'vhost_ssl.tpl.php';
   public $disabled_template = 'vhost_ssl_disabled.tpl.php';
-
-  public $description = 'encrypted virtual host configuration';
+  public $description = 'vhost_ssl configuration';
 
   function write() {
     parent::write();
