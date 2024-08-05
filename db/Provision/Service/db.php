@@ -356,6 +356,7 @@ class Provision_Service_db extends Provision_Service {
       }
     }
 
+    drush_log('fetch_site_credentials: db_name = ' . $creds['db_name'] ?? '(empty)', 'ok');
     return $creds;
   }
 
