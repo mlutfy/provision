@@ -13,13 +13,7 @@
 function drush_provision_drupal_provision_verify_validate() {
   if (d()->type === 'site') {
     provision_prepare_environment();
-    $hostmaster = provision_sitealias_get_record('@hostmaster');
-    if (!in_array(d()->name, ['@hm', '@hostmaster', '@' . $hostmaster['uri']])) {
-      _provision_drupal_create_settings_file();
-    }
-    else {
-      drush_log('Skipping _provision_drupal_create_settings_file in platform/verify.provision.inc because it is buggy');
-    }
+    _provision_drupal_create_settings_file();
     provision_drupal_push_site();
     drush_errors_on();
   }
