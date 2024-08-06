@@ -292,22 +292,22 @@ port=%s
     // webserver.
     umask(0077);
     // Allow writing to the site_path for the dump
-    provision_file()->chmod(d()->site_path, 0755);
+    provision_file()->chmod(d()->site_path, 0755)
+      ->succeed('Changed permissions of @path to @perm')
+      ->fail('Could not change permissions of @path to @perm');
 
     // We chdir and use --uri because we have issues with D10 aliases
     chdir(d()->site_path);
 
     $dump_file = d()->site_path . '/database.sql';
     $cmd = 'drush --uri ' . d()->uri . ' sql-dump > ' . $dump_file;
-    drush_log('sql-dump command: ' . $cmd, 'ok');
-    $output = [];
-    $ret = exec($cmd, $output);
+    if (provision_get_drupal_core_major_version() < 8) {
+      $cmd = 'drush sql-dump > ' . $dump_file;
+    }
+    $ret = provision_exec($cmd);
 
     if ($ret === FALSE) {
       drush_set_error('PROVISION_DB_BACKUP_FAILED', dt("Database backup failed: %output", ['%output' => implode('; ', $output)]));
-    }
-    else {
-      drush_log('sql-dump output: ' . implode('; ', $output), 'ok');
     }
 
     $dump_size = filesize($dump_file);
@@ -318,7 +318,9 @@ port=%s
     // Reset the umask to normal permissions
     umask(0022);
     // Reset the permissions on the site directory
-    provision_file()->chmod(d()->site_path, 0555);
+    provision_file()->chmod(d()->site_path, 0555)
+      ->succeed('Changed permissions of @path to @perm')
+      ->fail('Could not change permissions of @path to @perm');
   }
 
   /**
