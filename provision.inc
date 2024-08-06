@@ -625,6 +625,21 @@ function provision_get_drupal_core_major_version() {
 }
 
 /**
+ * This was initially in db fetch_site_credentials() but then sometimes the db
+ * service is bonkers and the settings.php gets scrapped. So this is yet another
+ * workaround. Latest bug was while installing hostmaster.
+ */
+function provision_reload_site_drushrc() {
+  global $options;
+  require_once d()->site_path . '/drushrc.php';
+  foreach ($options as $key => $val) {
+    drush_set_option($key, $val);
+    $_SERVER[$key] = $val;
+  }
+  return $options;
+}
+
+/**
  * the aegir version of the backend
  *
  * @return string

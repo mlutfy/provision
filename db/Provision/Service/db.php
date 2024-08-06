@@ -323,15 +323,7 @@ class Provision_Service_db extends Provision_Service {
     // [ML] SYMBIOTIC If the drush options are not set, do it ourselves
     // drush_get_option is rather opaque, and maybe it would just be simpler to stop using it
     if (!drush_get_option('db_name')) {
-      global $options;
-      require_once d()->site_path . '/drushrc.php';
-      foreach ($keys as $key) {
-        if (!empty($options[$key])) {
-          drush_set_option($key, $options[$key]);
-          $creds[$key] = $options[$key];
-          $_SERVER[$key] = $options[$key];
-        }
-      }
+      $creds = provision_reload_site_drushrc();
     }
     else {
       // This still needs to happen otherwise sometimes the drushrc.php is trashed
