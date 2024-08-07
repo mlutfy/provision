@@ -22,15 +22,6 @@ function drush_provision_drupal_provision_clone_validate($new_name = null, $plat
  */
 function drush_provision_drupal_pre_provision_clone($new_name, $platform = null) {
   drush_log(dt('Invoking drush provision-backup in drush_provision_drupal_pre_provision_clone'));
-  $backup_path = d('@server_master')->backup_path;
-  $internal_backup_flag = $backup_path . '/.internal_backup_flag.pid';
-  $internal_backup_flag_blank = "Internal-DB-Backup \n";
-  $local_description = 'Adding Internal-DB-Backup Flag-File drush_provision_drupal_pre_provision_clone';
-  if (!provision_file()->exists($internal_backup_flag)->status()) {
-    provision_file()->file_put_contents($internal_backup_flag, $internal_backup_flag_blank)
-      ->succeed('Generated blank ' . $local_description)
-      ->fail('Could not generate ' . $local_description);
-  }
   drush_invoke('provision-backup');
 }
 
@@ -97,10 +88,10 @@ function drush_provision_drupal_provision_clone($new_name, $platform = null) {
 
   // Build an options array to pass to the deploy task. This allows injection
   // of data into the deploy task. See: https://www.drupal.org/node/2471805
-  $deploy_options = array(
+  $deploy_options = [
     'old_uri' => d()->uri,
     'strict' => 0,
-  );
+  ];
   drush_command_invoke_all_ref('provision_deploy_options_alter', $deploy_options, 'clone');
 
   provision_backend_invoke($new_name, 'provision-deploy', array(drush_get_option('backup_file')), $deploy_options);
