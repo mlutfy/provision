@@ -157,15 +157,15 @@ function drush_provision_drupal_post_provision_verify() {
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
-    $command = "drush cr 2>&1";
+    $command = "cr";
 
     if (provision_get_drupal_core_major_version() < 8) {
-      $command = "drush cc all 2>&1";
+      $command = "cc all";
     }
 
     drush_log(dt("Drupal: Flushing cache..."), 'ok');
     chdir(d()->site_path);
-    provision_exec($command);
+    provision_exec_drush($command);
 
     drush_set_option('installed', TRUE, 'site');
     _provision_client_create_symlink();
