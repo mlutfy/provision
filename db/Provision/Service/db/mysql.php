@@ -323,42 +323,6 @@ port=%s
       ->fail('Could not change permissions of @path to @perm');
   }
 
-  /**
-   * We go through all this trouble to hide the password from the commandline,
-   * it's the most secure way (apart from writing a temporary file, which would
-   * create conflicts in parallel runs)
-   *
-   * XXX: this needs to be refactored so it:
-   *  - works even if /dev/fd/3 doesn't exist
-   *  - has a meaningful name (we're talking about reading and writing
-   * dumps here, really, or at least call mysql and mysqldump, not
-   * just any command)
-   *  - can be pushed upstream to drush (http://drupal.org/node/671906)
-   */
-  function safe_shell_exec($cmd, $db_host, $db_user, $db_passwd, $dump_file = NULL) {
-    $mycnf = $this->generate_mycnf($db_host, $db_user, $db_passwd);
-    $descriptorspec = $this->generate_descriptorspec($dump_file);
-    $pipes = array();
-    $process = proc_open($cmd, $descriptorspec, $pipes);
-    $this->safe_shell_exec_output = '';
-    if (is_resource($process)) {
-      fwrite($pipes[3], $mycnf);
-      fclose($pipes[3]);
-
-      $this->safe_shell_exec_output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
-      // "It is important that you close any pipes before calling
-      // proc_close in order to avoid a deadlock"
-      fclose($pipes[1]);
-      fclose($pipes[2]);
-      $return_value = proc_close($process);
-    }
-    else {
-      // XXX: failed to execute? unsure when this happens
-      $return_value = -1;
-    }
-    return ($return_value == 0);
-  }
-
   function utf8mb4_is_supported() {
     // Avoid weird Aegir problems. It's 2024 and utf8mb4 is always supported.
     return TRUE;
