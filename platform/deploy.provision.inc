@@ -205,6 +205,7 @@ function drush_provision_drupal_post_provision_deploy() {
 
   // Remove the restore directory.
   if (!drush_get_error() && drush_get_option('deploy_replace_site', FALSE)) {
+    provision_file()->chmod(drush_get_option('extract_path'), 0755);
     _provision_recursive_delete(drush_get_option('extract_path'));
   }
 
