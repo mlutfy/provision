@@ -143,15 +143,12 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
 
   function import_dump($dump_file, $creds) {
     chdir(d()->site_path);
-    $output = [];
     // This works on drush 12.5, otherwise we may need to check the core version for 'sql:cli'?
     // Before using drush, this function used to call mysql directly, with
     // named pipes (safe_shell_exec), and it would be difficult to debug.
-    $cmd = 'drush -l ' . d()->uri . ' sql-cli < ' . $dump_file;
-    drush_log(sprintf("Importing database using command: %s", $cmd), 'ok');
-    $ret = exec($cmd, $output);
-    if ($ret === FALSE) {
-      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", ['%output' => implode('; ', $output)]));
+    $cmd = 'sql-cli < ' . $dump_file;
+    if (provision_exec_drush($cmd) === FALSE) {
+      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed"));
     }
   }
 
@@ -296,25 +293,25 @@ port=%s
       ->succeed('Changed permissions of @path to @perm')
       ->fail('Could not change permissions of @path to @perm');
 
-    // We chdir and use --uri because we have issues with D10 aliases
+    // We chdir and use "-l" because we have issues with D10 aliases
     chdir(d()->site_path);
-
     $dump_file = d()->site_path . '/database.sql';
-    $cmd = 'drush -l ' . d()->uri . ' sql-dump > ' . escapeshellarg($dump_file);
-    $ret = provision_exec($cmd);
+    $cmd = 'sql-dump --result-file=' . escapeshellarg($dump_file);
 
-    if ($ret === FALSE) {
+    if (provision_exec_drush($cmd) !== FALSE) {
+      $dump_size = filesize($dump_file);
+      if ($dump_size < 1024 && !drush_get_option('force', FALSE)) {
+        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (filesize: %size)', ['%size' => $dump_size]));
+      }
+      else {
+        // Filter out DEFINERs for MySQL views and procedures
+        provision_exec("perl -pi -e 's#\/\*\!5001[7|3].*?`[^\*]*\*\/##g' " . escapeshellarg($dump_file));
+        provision_exec("perl -pi -e 's/DEFINER=[^ ]+//g' " . escapeshellarg($dump_file));
+      }
+    }
+    else {
       drush_set_error('PROVISION_DB_BACKUP_FAILED', dt("Database backup failed"));
     }
-
-    $dump_size = filesize($dump_file);
-    if ($dump_size < 1024 && !drush_get_option('force', FALSE)) {
-      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (filesize: %size)', array('%size' => $dump_size)));
-    }
-
-    // Filter out DEFINERs for MySQL views and procedures
-    provision_exec("perl -pi -e 's#\/\*\!5001[7|3].*?`[^\*]*\*\/##g' " . escapeshellarg($dump_file));
-    provision_exec("perl -pi -e 's/DEFINER=[^ ]+//g' " . escapeshellarg($dump_file));
 
     // Reset the umask to normal permissions
     umask(0022);

@@ -594,6 +594,9 @@ function provision_get_drupal_core_version() {
  * Returns false if it failed.
  */
 function provision_exec($command) {
+  // exec ignores stderr, so we must do this
+  $command .= ' 2>&1';
+
   drush_log(dt("Provision: running: %command", ['%command' => $command]), 'ok');
   $output = [];
   exec($command, $output, $retval);
@@ -610,6 +613,20 @@ function provision_exec($command) {
   }
 
   return $retval === 0;
+}
+
+/**
+ * Wrapper so that we can call the right drush executable
+ * because in d10, when running tasks using Aegir, it can be wonky
+ */
+function provision_exec_drush($cmd) {
+  $drush = 'drush';
+
+  if (provision_get_drupal_core_major_version() >= 10) {
+    $drush = d()->root . '/../vendor/drush/drush/drush';
+  }
+
+  return provision_exec($drush . ' -l ' . d()->uri . ' ' . $cmd);
 }
 
 /**
