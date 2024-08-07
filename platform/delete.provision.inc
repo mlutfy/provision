@@ -47,7 +47,7 @@ function drush_provision_drupal_provision_delete() {
     // It will not be possible to delete otherwise
     drush_log('Removing the site directory: ' . d()->site_path, 'ok');
     provision_file()->chmod(d()->site_path, 0755)
-      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d()->site_path);
 

@@ -158,7 +158,7 @@ function drush_provision_drupal_pre_provision_deploy_rollback() {
   if (provision_file()->exists(drush_get_option('extract_path'))->status()) {
     drush_log('Removing the old restore directory: ' . drush_get_option('extract_path'), 'ok');
     provision_file()->chmod(drush_get_option('extract_path'), 0755)
-      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(drush_get_option('extract_path'));
   }
@@ -210,7 +210,7 @@ function drush_provision_drupal_post_provision_deploy() {
   if (!drush_get_error() && drush_get_option('deploy_replace_site', FALSE)) {
     drush_log('Removing the old restore directory: ' . drush_get_option('extract_path'), 'ok');
     provision_file()->chmod(drush_get_option('extract_path'), 0755)
-      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(drush_get_option('extract_path'));
   }

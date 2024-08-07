@@ -209,7 +209,7 @@ function drush_provision_drupal_post_provision_migrate($platform, $new_name = NU
     _provision_drupal_delete_aliases();
     drush_log('Removing the restore directory: ' . d()->site_path, 'ok');
     provision_file()->chmod(d()->site_path, 0755)
-      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d()->site_path);
     d()->service('http')->sync(d()->site_path);
@@ -224,7 +224,7 @@ function drush_provision_drupal_post_provision_migrate($platform, $new_name = NU
     $config->unlink();
     // Delete the old site directory.
     provision_file()->chmod(drush_get_option('extract_path'), 0755)
-      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d($source_name)->site_path);
     d()->service('http')->sync(d($source_name)->site_path);
