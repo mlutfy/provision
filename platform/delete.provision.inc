@@ -45,9 +45,12 @@ function drush_provision_drupal_provision_delete() {
     drush_set_option('provision_save_config', false);
 
     // It will not be possible to delete otherwise
-    provision_file()->chmod(d()->site_path, 0755);
-
+    drush_log('Removing the site directory: ' . d()->site_path, 'ok');
+    provision_file()->chmod(d()->site_path, 0755)
+      ->succeed($name . ' permissions of @path have been changed to @perm.')
+      ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d()->site_path);
+
     // we remove the aliases even if redirection is enabled as a precaution
     // if redirection is enabled, keep silent about errors
     _provision_drupal_delete_aliases();
@@ -82,6 +85,7 @@ function drush_provision_drupal_provision_delete() {
     }
     else {
       drush_invoke_process('@none', 'provision-save', array(d()->name), array('delete' => TRUE));
+      drush_log('Removing the platform directory: ' . d()->root, 'ok');
       _provision_recursive_delete(d()->root);
       if ($local_delete_parent) {
         sleep(5);
