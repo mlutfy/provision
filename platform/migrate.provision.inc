@@ -10,7 +10,8 @@
  * Implementation of drush_hook_COMMAND_validate().
  */
 function drush_provision_drupal_provision_migrate_validate($platform = NULL) {
-  drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
+  // @todo Find another way than bootstrapping (drush status or whatever)
+  // drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
 }
 
 /**
