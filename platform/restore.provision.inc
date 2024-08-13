@@ -46,6 +46,10 @@ function drush_provision_drupal_provision_restore($restore_file) {
 
   provision_backend_invoke(d()->name, 'provision-deploy', array(drush_get_option('restore_file')), $deploy_options);
   if (!drush_get_error()) {
+    // Avoid errors if the current directory does not exist anymore
+    // and besides, verify must always be run from a non-Drupal directory (especially for d10)
+    // although I suppose provision-verify should be the one doing a chdir
+    chdir("/var/aegir");
     provision_backend_invoke(d()->name, 'provision-verify');
     drush_set_option('installed', false);
   }
