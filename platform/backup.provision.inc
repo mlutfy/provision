@@ -99,7 +99,9 @@ function drush_provision_drupal_provision_backup_get_exclusions() {
 
   $exclusions = "";
   foreach ($directories as $directory) {
-    $exclusions .= " '$directory'/exclude.tag";
+    if (is_dir($directory)) {
+      $exclusions .= " '$directory'/exclude.tag";
+    }
   }
   return $exclusions;
 }
