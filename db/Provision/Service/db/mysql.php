@@ -69,6 +69,16 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
     return $this->grant_privileges($name, $username, $password, $host);
   }
 
+  function grant_exists($username, $host) {
+    $result = $this->query('SHOW GRANTS FOR `%s`@`%s`', $username, $host);
+    if (!$result) {
+      return FALSE;
+    }
+    // Maybe not necessary to check this
+    $test = $result->fetch();
+    return $test !== FALSE;
+  }
+
   function create_user($username, $host) {
     $statement = "CREATE USER IF NOT EXISTS `%s`@`%s`";
     return $this->query($statement, $username, $host);
@@ -95,7 +105,9 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   }
 
   function revoke($name, $username, $host = '') {
-    $host = '%';
+    if (!$host) {
+      $host = '%';
+    }
     drush_command_invoke_all_ref('provision_db_username_alter', $username, '', 'revoke');
     $success = $this->query("REVOKE ALL PRIVILEGES ON `%s`.* FROM `%s`@`%s`", $name, $username, $host);
 

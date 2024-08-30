@@ -162,9 +162,20 @@ class Provision_Service_db extends Provision_Service {
      return FALSE;
     }
 
+    // Some time ago, we gave up on the host, and always grant '@%'
+    // the above is to clear up old sites
     foreach ($this->grant_host_list() as $db_grant_host) {
-      drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => $db_grant_host, '%database' => $db_name)), 'info');
-      if (!$this->revoke($db_name, $db_user, $db_grant_host)) {
+      if ($this->grant_exists($db_user, $db_grant_host)) {
+        drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => $db_grant_host, '%database' => $db_name)), 'info');
+        if (!$this->revoke($db_name, $db_user, $db_grant_host)) {
+          drush_log(dt("Failed to revoke user privileges"), 'warning');
+        }
+      }
+    }
+
+    if ($this->grant_exists($db_user, '%')) {
+      drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => '%', '%database' => $db_name)), 'info');
+      if (!$this->revoke($db_name, $db_user, '%')) {
         drush_log(dt("Failed to revoke user privileges"), 'warning');
       }
     }
