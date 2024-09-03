@@ -30,7 +30,7 @@ class Provision_Config_Drupal_Settings extends Provision_Config {
       $this->template = 'provision_drupal_settings_10.tpl.php';
       $this->data['db_type'] = ($this->data['db_type'] == 'mysqli') ? 'mysql' : $this->data['db_type'];
       $this->data['utf8mb4_is_configurable'] = TRUE;
-      $this->data['utf8mb4_is_supported'] = $this->db_server->utf8mb4_is_supported;
+      $this->data['utf8mb4_is_supported'] = TRUE;
       $drupal_root = d()->root;
       require_once $drupal_root . '/core/lib/Drupal/Component/Utility/Crypt.php';
       $this->data['drupal_hash_salt_var'] = Drupal\Component\Utility\Crypt::randomBytesBase64(55);
@@ -40,7 +40,7 @@ class Provision_Config_Drupal_Settings extends Provision_Config {
       $this->template = 'provision_drupal_settings_9.tpl.php';
       $this->data['db_type'] = ($this->data['db_type'] == 'mysqli') ? 'mysql' : $this->data['db_type'];
       $this->data['utf8mb4_is_configurable'] = TRUE;
-      $this->data['utf8mb4_is_supported'] = $this->db_server->utf8mb4_is_supported;
+      $this->data['utf8mb4_is_supported'] = TRUE;
       $drupal_root = d()->root;
       require_once $drupal_root . '/core/lib/Drupal/Component/Utility/Crypt.php';
       $this->data['drupal_hash_salt_var'] = Drupal\Component\Utility\Crypt::randomBytesBase64(55);
@@ -50,7 +50,7 @@ class Provision_Config_Drupal_Settings extends Provision_Config {
       $this->template = 'provision_drupal_settings_8.tpl.php';
       $this->data['db_type'] = ($this->data['db_type'] == 'mysqli') ? 'mysql' : $this->data['db_type'];
       $this->data['utf8mb4_is_configurable'] = TRUE;
-      $this->data['utf8mb4_is_supported'] = $this->db_server->utf8mb4_is_supported;
+      $this->data['utf8mb4_is_supported'] = TRUE;
       $drupal_root = d()->root;
       require_once $drupal_root . '/core/lib/Drupal/Component/Utility/Crypt.php';
       $this->data['drupal_hash_salt_var'] = Drupal\Component\Utility\Crypt::randomBytesBase64(55);
