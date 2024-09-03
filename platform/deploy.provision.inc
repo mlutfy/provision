@@ -92,9 +92,7 @@ function drush_provision_drupal_pre_provision_deploy($backup_file) {
     provision_save_site_data();
 
     // Load the newly created information, including re-loading the new db creds.
-    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
     _provision_drupal_create_settings_file();
-    provision_drupal_push_site($override_slave_authority = TRUE);
 
     $site_packages = drush_get_option('packages', array(), 'site');
     $drupal_packages = drush_get_option('packages', array(), 'drupal');
@@ -156,7 +154,10 @@ function drush_provision_drupal_pre_provision_deploy_rollback() {
   }
 
   if (provision_file()->exists(drush_get_option('extract_path'))->status()) {
-    provision_file()->chmod(drush_get_option('extract_path'), 0755);
+    drush_log('Removing the old restore directory: ' . drush_get_option('extract_path'), 'ok');
+    provision_file()->chmod(drush_get_option('extract_path'), 0755)
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
+      ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(drush_get_option('extract_path'));
   }
 }
@@ -175,36 +176,27 @@ function drush_provision_drupal_provision_deploy() {
 function drush_provision_drupal_post_provision_deploy() {
   // Run registry-rebuild without cache-clear, if available.
   if (function_exists('drush_registry_rebuild')) {
-    if (drush_drupal_major_version() < 8 && !provision_is_hostmaster_site()) {
-      provision_backend_invoke(d()->name, 'registry-rebuild --no-cache-clear');
-      drush_log(dt('Registry rebuilt with --no-cache-clear in drush_provision_drupal_post_provision_deploy'));
+    if (provision_get_drupal_core_major_version() < 8 && !provision_is_hostmaster_site()) {
+      provision_exec_drush('registry-rebuild --no-cache-clear');
     }
   }
 
-  // Call the drush updatedb command.
-  $drupal_core_version = provision_get_drupal_core_version();
-
-  if ($drupal_core_version && version_compare($drupal_core_version, 9, '>=')) {
-    $command = "drush updatedb -y";
-    drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
-    chdir(d()->site_path);
-    $output = system($command, $retval);
-    drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');
-  }
-  else {
-    provision_backend_invoke(d()->name, 'updatedb');
-  }
+  // Drupal database upgrades
+  provision_exec_drush('updatedb -y');
 
   // Run registry-rebuild with cache-clear, if available.
   if (function_exists('drush_registry_rebuild')) {
-    if (drush_drupal_major_version() < 8 && !provision_is_hostmaster_site()) {
-      provision_backend_invoke(d()->name, 'registry-rebuild');
-      drush_log(dt('Registry rebuilt without --no-cache-clear in drush_provision_drupal_post_provision_deploy'));
+    if (provision_get_drupal_core_major_version() < 8 && !provision_is_hostmaster_site()) {
+      provision_exec_drush('registry-rebuild');
     }
   }
 
   // Remove the restore directory.
   if (!drush_get_error() && drush_get_option('deploy_replace_site', FALSE)) {
+    drush_log('Removing the old restore directory: ' . drush_get_option('extract_path'), 'ok');
+    provision_file()->chmod(drush_get_option('extract_path'), 0755)
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
+      ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(drush_get_option('extract_path'));
   }
 

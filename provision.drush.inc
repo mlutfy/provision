@@ -260,7 +260,7 @@ function provision_drush_command() {
     'examples' => array(
       'drush @site provision-migrate @platform_name' => 'Migrate the site as defined by the Drush alias, to the platform as defined by the platform\'s Drush alias',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
   $items['provision-clone'] = array(

@@ -10,7 +10,8 @@
  * Implementation of drush_hook_COMMAND_validate().
  */
 function drush_provision_drupal_provision_migrate_validate($platform = NULL) {
-  drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
+  // @todo Find another way than bootstrapping (drush status or whatever)
+  // drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
 }
 
 /**
@@ -26,14 +27,6 @@ function drush_provision_drupal_pre_provision_migrate($platform, $new_name = NUL
   _provision_drupal_create_settings_file();
   drush_log(dt('Invoking drush provision-backup in drush_provision_drupal_pre_provision_migrate'));
   $backup_path = d('@server_master')->backup_path;
-  $internal_backup_flag = $backup_path . '/.internal_backup_flag.pid';
-  $internal_backup_flag_blank = "Internal-DB-Backup \n";
-  $local_description = 'Adding Internal-DB-Backup Flag-File drush_provision_drupal_pre_provision_migrate';
-  if (!provision_file()->exists($internal_backup_flag)->status()) {
-    provision_file()->file_put_contents($internal_backup_flag, $internal_backup_flag_blank)
-      ->succeed('Generated blank ' . $local_description)
-      ->fail('Could not generate ' . $local_description);
-  }
   drush_invoke('provision-backup');
   provision_drupal_push_site();
 
@@ -82,26 +75,20 @@ function drush_provision_drupal_pre_provision_migrate_rollback($platform, $new_n
  * Implementation of drush_hook_COMMAND().
  */
 function drush_provision_drupal_provision_migrate($platform, $new_name = NULL) {
-
   $target = drush_get_option('target_name');
-  $options = array();
+  $options = [];
   $options = d()->options;
   $options['uri'] = d()->uri;
 
-  $aegir_root = d('@server_master')->aegir_root;
-  $enable_fast_track = $aegir_root . '/static/control/FastTrack.info';
-
-  if (!is_file($enable_fast_track)) {
-    // If the site is migrated between platforms and not just renamed,
-    // we should update the info collected about source and target platform first.
-    // Note that we have to exclude Hostmaster platform from this extra verify.
-    if (!provision_is_hostmaster_site() && drush_get_option('provision_verify_platforms_before_migrate', TRUE)) {
-      if (!is_null(d($platform)->name) && (d($platform)->name != d()->platform->name)) {
-        provision_backend_invoke('@hostmaster', 'hosting-task', array(d()->platform->name, 'verify'), array('force' => TRUE));
-        sleep(5); // A small trick to avoid high load and race conditions.
-        provision_backend_invoke('@hostmaster', 'hosting-task', array(d($platform)->name, 'verify'), array('force' => TRUE));
-        sleep(5); // A small trick to avoid high load and race conditions.
-      }
+  // If the site is migrated between platforms and not just renamed,
+  // we should update the info collected about source and target platform first.
+  // Note that we have to exclude Hostmaster platform from this extra verify.
+  if (!provision_is_hostmaster_site() && drush_get_option('provision_verify_platforms_before_migrate', TRUE)) {
+    if (!is_null(d($platform)->name) && (d($platform)->name != d()->platform->name)) {
+      provision_backend_invoke('@hostmaster', 'hosting-task', array(d()->platform->name, 'verify'), array('force' => TRUE));
+      sleep(5); // A small trick to avoid high load and race conditions.
+      provision_backend_invoke('@hostmaster', 'hosting-task', array(d($platform)->name, 'verify'), array('force' => TRUE));
+      sleep(5); // A small trick to avoid high load and race conditions.
     }
   }
 
@@ -166,47 +153,7 @@ function drush_provision_drupal_provision_migrate($platform, $new_name = NULL) {
     // (and never delete) duplicate vhost with old domain
     // and all aliases included - see issue #1067702.
   }
-  else {
 
-    $aegir_root = d('@server_master')->aegir_root;
-    $enable_fast_track = $aegir_root . '/static/control/FastTrack.info';
-
-    if (!is_file($enable_fast_track)) {
-
-      // We have to exclude Hostmaster site from any extra verify steps.
-      if (!provision_is_hostmaster_site()) {
-        // We should update also the info collected about the site before running migrate task.
-        // Doing this is safe only when the site is migrated with the same name - see issue #1067702.
-        $local_uri_verify = '@' . d()->uri;
-        // XXX: right now we just pause SSL configuration when migrating,
-        // even if the site name doesn't change, because of possible
-        // edge case situations where the task had errors preventing it
-        // from managing vhost and respective SSL keys updates properly.
-        if ($options['ssl_enabled'] && $options['ssl_key']) {
-          $encryption_was_enabled = "YES";
-          $temp_options_ssl_enabled = $options['ssl_enabled'];
-          $temp_options_ssl_key = $options['ssl_key'];
-          $temp_uri_verify = $local_uri_verify;
-          drush_log(dt("DEBUG TO DISABLE ssl_enabled WAS @this", array('@this' => $options['ssl_enabled'])), 'info');
-          drush_log(dt("DEBUG TO DISABLE ssl_key WAS @this", array('@this' => $options['ssl_key'])), 'info');
-          drush_log(dt("DEBUG TO DISABLE temp_uri_verify WAS @this", array('@this' => $temp_uri_verify)), 'info');
-          drush_set_option('encryption_was_enabled', TRUE);
-          drush_set_option('temp_options_ssl_enabled', $options['ssl_enabled']);
-          drush_set_option('temp_options_ssl_key', $options['ssl_key']);
-          drush_set_option('temp_uri_verify', $temp_uri_verify);
-          $options['ssl_enabled'] = 0;
-          unset($options['ssl_key']);
-          drush_log(dt("DEBUG DISABLED ssl_enabled WAS @this", array('@this' => $options['ssl_enabled'])), 'info');
-          drush_log(dt("DEBUG DISABLED ssl_key WAS @this", array('@this' => $options['ssl_key'])), 'info');
-          drush_log(dt("DEBUG DISABLED temp_uri_verify WAS @this", array('@this' => $temp_uri_verify)), 'info');
-          drush_invoke_process('@none', 'provision-save', array($temp_uri_verify), $options);
-          sleep(5); // A small trick to avoid high load and race conditions.
-        }
-        provision_backend_invoke('@hostmaster', 'hosting-task', array($local_uri_verify, 'verify'), array('force' => TRUE));
-        sleep(5); // A small trick to avoid high load and race conditions.
-      }
-    }
-  }
   $options['platform'] = $platform;
   $options['root'] = d($platform)->root;
 
@@ -236,32 +183,6 @@ function drush_provision_drupal_provision_migrate($platform, $new_name = NULL) {
     d()->site_enabled = TRUE;
     drush_set_option('provision_save_config', FALSE);
     provision_backend_invoke($target, 'provision-verify');
-
-    $aegir_root = d('@server_master')->aegir_root;
-    $enable_fast_track = $aegir_root . '/static/control/FastTrack.info';
-
-    if (!is_file($enable_fast_track)) {
-      sleep(5); // A small trick to avoid high load and race conditions.
-      // Re-enable encryption again if needed and only when platform has changed
-      $encryption_was_enabled = drush_get_option('encryption_was_enabled');
-      if ($encryption_was_enabled) {
-        drush_log(dt("DEBUG ENABLE encryption_was_enabled WAS @this", array('@this' => $encryption_was_enabled)), 'info');
-        $temp_options_ssl_enabled = drush_get_option('encryption_was_enabled');
-        $temp_options_ssl_key = drush_get_option('encryption_was_enabled');
-        $temp_uri_verify = drush_get_option('temp_uri_verify');
-        if ($temp_options_ssl_enabled && $temp_options_ssl_key) {
-          drush_log(dt("DEBUG ENABLE temp_options_ssl_enabled WAS @this", array('@this' => $temp_options_ssl_enabled)), 'info');
-          drush_log(dt("DEBUG ENABLE temp_options_ssl_key WAS @this", array('@this' => $temp_options_ssl_key)), 'info');
-          drush_log(dt("DEBUG ENABLE temp_uri_verify WAS @this", array('@this' => $temp_uri_verify)), 'info');
-          $options['ssl_enabled'] = $temp_options_ssl_enabled;
-          $options['ssl_key'] = $temp_options_ssl_key;
-          drush_invoke_process('@none', 'provision-save', array($temp_uri_verify), $options);
-          sleep(5); // A small trick to avoid high load and race conditions.
-          provision_backend_invoke('@hostmaster', 'hosting-task', array($temp_uri_verify, 'verify'), array('force' => TRUE));
-          sleep(5); // A small trick to avoid high load and race conditions.
-        }
-      }
-    }
   }
 }
 
@@ -286,6 +207,10 @@ function drush_provision_drupal_post_provision_migrate($platform, $new_name = NU
     // we remove the aliases even if redirection is enabled as a precaution
     // if redirection is enabled, keep silent about errors
     _provision_drupal_delete_aliases();
+    drush_log('Removing the restore directory: ' . d()->site_path, 'ok');
+    provision_file()->chmod(d()->site_path, 0755)
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
+      ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d()->site_path);
     d()->service('http')->sync(d()->site_path);
   }
@@ -298,6 +223,9 @@ function drush_provision_drupal_post_provision_migrate($platform, $new_name = NU
     $config = new Provision_Config_Drushrc_Alias(d()->name);
     $config->unlink();
     // Delete the old site directory.
+    provision_file()->chmod(drush_get_option('extract_path'), 0755)
+      ->succeed('Changed permissions of <code>@path</code> to @perm')
+      ->fail('Could not change permissions <code>@path</code> to @perm');
     _provision_recursive_delete(d($source_name)->site_path);
     d()->service('http')->sync(d($source_name)->site_path);
     // Remove old site name aliases.
@@ -329,10 +257,4 @@ function drush_provision_drupal_post_provision_migrate($platform, $new_name = NU
     // Load the config file of the newly migrated site and return it to hosting.
     provision_reload_config('site', drush_get_option('new_site_path', d()->site_path) . '/drushrc.php');
   }
-
-  $backup_path = d('@server_master')->backup_path;
-  $internal_backup_flag = $backup_path . '/.internal_backup_flag.pid';
-  provision_file()->unlink($internal_backup_flag)
-    ->succeed('Removed Internal-DB-Backup Flag-File in drush_provision_drupal_post_provision_migrate')
-    ->fail('Could not remove Internal-DB-Backup Flag-File in drush_provision_drupal_post_provision_migrate');
 }

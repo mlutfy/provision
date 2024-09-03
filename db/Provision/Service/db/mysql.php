@@ -69,6 +69,16 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
     return $this->grant_privileges($name, $username, $password, $host);
   }
 
+  function grant_exists($username, $host) {
+    $result = $this->query('SHOW GRANTS FOR `%s`@`%s`', $username, $host);
+    if (!$result) {
+      return FALSE;
+    }
+    // Maybe not necessary to check this
+    $test = $result->fetch();
+    return $test !== FALSE;
+  }
+
   function create_user($username, $host) {
     $statement = "CREATE USER IF NOT EXISTS `%s`@`%s`";
     return $this->query($statement, $username, $host);
@@ -95,7 +105,9 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
   }
 
   function revoke($name, $username, $host = '') {
-    $host = '%';
+    if (!$host) {
+      $host = '%';
+    }
     drush_command_invoke_all_ref('provision_db_username_alter', $username, '', 'revoke');
     $success = $this->query("REVOKE ALL PRIVILEGES ON `%s`.* FROM `%s`@`%s`", $name, $username, $host);
 
@@ -143,15 +155,12 @@ class Provision_Service_db_mysql extends Provision_Service_db_pdo {
 
   function import_dump($dump_file, $creds) {
     chdir(d()->site_path);
-    $output = [];
     // This works on drush 12.5, otherwise we may need to check the core version for 'sql:cli'?
     // Before using drush, this function used to call mysql directly, with
     // named pipes (safe_shell_exec), and it would be difficult to debug.
-    $cmd = 'drush --uri ' . d()->uri . ' sql-cli < ' . $dump_file;
-    drush_log(sprintf("Importing database using command: %s", $cmd), 'info');
-    $ret = exec($cmd, $output);
-    if ($ret === FALSE) {
-      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed: %output", ['%output' => implode('; ', $output)]));
+    $cmd = 'sql-cli < ' . $dump_file;
+    if (provision_exec_drush($cmd) === FALSE) {
+      drush_set_error('PROVISION_DB_IMPORT_FAILED', dt("Database import failed"));
     }
   }
 
@@ -296,23 +305,24 @@ port=%s
       ->succeed('Changed permissions of @path to @perm')
       ->fail('Could not change permissions of @path to @perm');
 
-    // We chdir and use --uri because we have issues with D10 aliases
+    // We chdir and use "-l" because we have issues with D10 aliases
     chdir(d()->site_path);
-
     $dump_file = d()->site_path . '/database.sql';
-    $cmd = 'drush --uri ' . d()->uri . ' sql-dump > ' . $dump_file;
-    if (provision_get_drupal_core_major_version() < 8) {
-      $cmd = 'drush sql-dump > ' . $dump_file;
-    }
-    $ret = provision_exec($cmd);
+    $cmd = 'sql-dump --result-file=' . escapeshellarg($dump_file);
 
-    if ($ret === FALSE) {
-      drush_set_error('PROVISION_DB_BACKUP_FAILED', dt("Database backup failed: %output", ['%output' => implode('; ', $output)]));
+    if (provision_exec_drush($cmd) !== FALSE) {
+      $dump_size = filesize($dump_file);
+      if ($dump_size < 1024 && !drush_get_option('force', FALSE)) {
+        drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (filesize: %size)', ['%size' => $dump_size]));
+      }
+      else {
+        // Filter out DEFINERs for MySQL views and procedures
+        provision_exec("perl -pi -e 's#\/\*\!5001[7|3].*?`[^\*]*\*\/##g' " . escapeshellarg($dump_file));
+        provision_exec("perl -pi -e 's/DEFINER=[^ ]+//g' " . escapeshellarg($dump_file));
+      }
     }
-
-    $dump_size = filesize($dump_file);
-    if ($dump_size < 1024 && !drush_get_option('force', FALSE)) {
-      drush_set_error('PROVISION_BACKUP_FAILED', dt('Could not generate database backup from mysqldump. (filesize: %size)', array('%size' => $dump_size)));
+    else {
+      drush_set_error('PROVISION_DB_BACKUP_FAILED', dt("Database backup failed"));
     }
 
     // Reset the umask to normal permissions
@@ -321,42 +331,6 @@ port=%s
     provision_file()->chmod(d()->site_path, 0555)
       ->succeed('Changed permissions of @path to @perm')
       ->fail('Could not change permissions of @path to @perm');
-  }
-
-  /**
-   * We go through all this trouble to hide the password from the commandline,
-   * it's the most secure way (apart from writing a temporary file, which would
-   * create conflicts in parallel runs)
-   *
-   * XXX: this needs to be refactored so it:
-   *  - works even if /dev/fd/3 doesn't exist
-   *  - has a meaningful name (we're talking about reading and writing
-   * dumps here, really, or at least call mysql and mysqldump, not
-   * just any command)
-   *  - can be pushed upstream to drush (http://drupal.org/node/671906)
-   */
-  function safe_shell_exec($cmd, $db_host, $db_user, $db_passwd, $dump_file = NULL) {
-    $mycnf = $this->generate_mycnf($db_host, $db_user, $db_passwd);
-    $descriptorspec = $this->generate_descriptorspec($dump_file);
-    $pipes = array();
-    $process = proc_open($cmd, $descriptorspec, $pipes);
-    $this->safe_shell_exec_output = '';
-    if (is_resource($process)) {
-      fwrite($pipes[3], $mycnf);
-      fclose($pipes[3]);
-
-      $this->safe_shell_exec_output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
-      // "It is important that you close any pipes before calling
-      // proc_close in order to avoid a deadlock"
-      fclose($pipes[1]);
-      fclose($pipes[2]);
-      $return_value = proc_close($process);
-    }
-    else {
-      // XXX: failed to execute? unsure when this happens
-      $return_value = -1;
-    }
-    return ($return_value == 0);
   }
 
   function utf8mb4_is_supported() {

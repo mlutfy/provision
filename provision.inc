@@ -594,6 +594,9 @@ function provision_get_drupal_core_version() {
  * Returns false if it failed.
  */
 function provision_exec($command) {
+  // exec ignores stderr, so we must do this
+  $command .= ' 2>&1';
+
   drush_log(dt("Provision: running: %command", ['%command' => $command]), 'ok');
   $output = [];
   exec($command, $output, $retval);
@@ -613,6 +616,20 @@ function provision_exec($command) {
 }
 
 /**
+ * Wrapper so that we can call the right drush executable
+ * because in d10, when running tasks using Aegir, it can be wonky
+ */
+function provision_exec_drush($cmd) {
+  $drush = 'drush';
+
+  if (provision_get_drupal_core_major_version() >= 10) {
+    $drush = d()->root . '/../vendor/drush/drush/drush';
+  }
+
+  return provision_exec($drush . ' -l ' . d()->uri . ' ' . $cmd);
+}
+
+/**
  * Retuns the major Drupal version
  */
 function provision_get_drupal_core_major_version() {
@@ -622,6 +639,21 @@ function provision_get_drupal_core_major_version() {
     return $parts[0];
   }
   return NULL;
+}
+
+/**
+ * This was initially in db fetch_site_credentials() but then sometimes the db
+ * service is bonkers and the settings.php gets scrapped. So this is yet another
+ * workaround. Latest bug was while installing hostmaster.
+ */
+function provision_reload_site_drushrc() {
+  global $options;
+  require_once d()->site_path . '/drushrc.php';
+  foreach ($options as $key => $val) {
+    drush_set_option($key, $val);
+    $_SERVER[$key] = $val;
+  }
+  return $options;
 }
 
 /**

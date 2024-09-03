@@ -162,9 +162,20 @@ class Provision_Service_db extends Provision_Service {
      return FALSE;
     }
 
+    // Some time ago, we gave up on the host, and always grant '@%'
+    // the above is to clear up old sites
     foreach ($this->grant_host_list() as $db_grant_host) {
-      drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => $db_grant_host, '%database' => $db_name)), 'info');
-      if (!$this->revoke($db_name, $db_user, $db_grant_host)) {
+      if ($this->grant_exists($db_user, $db_grant_host)) {
+        drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => $db_grant_host, '%database' => $db_name)), 'info');
+        if (!$this->revoke($db_name, $db_user, $db_grant_host)) {
+          drush_log(dt("Failed to revoke user privileges"), 'warning');
+        }
+      }
+    }
+
+    if ($this->grant_exists($db_user, '%')) {
+      drush_log(dt("Revoking privileges of %user@%client from %database", array('%user' => $db_user, '%client' => '%', '%database' => $db_name)), 'info');
+      if (!$this->revoke($db_name, $db_user, '%')) {
         drush_log(dt("Failed to revoke user privileges"), 'warning');
       }
     }
@@ -176,120 +187,24 @@ class Provision_Service_db extends Provision_Service {
       $creds = $this->fetch_site_credentials();
     }
     extract($creds);
-    drush_log(dt("DEBUG MyQuick import_site_database db.php db_name @var", array('@var' => $db_name)), 'info');
-    $mydumper_path = '/usr/local/bin/mydumper';
-    $myloader_path = '/usr/local/bin/myloader';
-    $script_user = d('@server_master')->script_user;
-    $aegir_root = d('@server_master')->aegir_root;
-    $backup_path = d('@server_master')->backup_path;
-    $oct_db_dirx = $backup_path . '/tmp_expim';
-    $pass_php_inc = $aegir_root . '/.' . $script_user . '.pass.php';
-    drush_log(dt("DEBUG MyQuick import_site_database db.php pass_php_inc @var", array('@var' => $pass_php_inc)), 'info');
-    $enable_myquick = $aegir_root . '/static/control/MyQuick.info';
-    drush_log(dt("DEBUG MyQuick import_site_database db.php enable_myquick @var", array('@var' => $enable_myquick)), 'info');
 
-    if (is_file($enable_myquick) && is_executable($myloader_path)) {
-
-      if (provision_file()->exists($pass_php_inc)->status()) {
-        include_once($pass_php_inc);
-      }
-
-      if ($db_name) {
-        $mycnf = $this->generate_mycnf();
-        $oct_db_user = $db_user;
-        $oct_db_pass = $db_passwd;
-        $oct_db_host = $db_host;
-        $oct_db_port = $db_port;
-        if ($this->server->db_port == '6033') {
-          if (is_readable('/opt/tools/drush/proxysql_adm_pwd.inc')) {
-            include('/opt/tools/drush/proxysql_adm_pwd.inc');
-            if ($writer_node_ip) {
-              drush_log('Skip ProxySQL in import_site_database', 'notice');
-              $oct_db_host = $writer_node_ip;
-              $oct_db_port = '3306';
-            }
-            else {
-              drush_log('Using ProxySQL in import_site_database', 'notice');
-            }
-          }
-        }
-      }
-      else {
-        drush_log(dt("DEBUG MyQuick import_site_database db.php FAIL no db_name @var", array('@var' => $db_name)), 'info');
-      }
-
-      if (!is_dir($oct_db_dirx)) {
-        drush_log(dt("DEBUG MyQuick import_site_database db.php fail oct_db_dirx @var", array('@var' => $oct_db_dirx)), 'info');
-        drush_set_error('PROVISION_DB_IMPORT_FAILED', dt('Database import failed (dir: %dir)', array('%dir' => $oct_db_dirx)));
-      }
-
-      $threads = provision_count_cpus();
-      $threads = intval($threads / 4) + 1;
-      drush_log(dt("DEBUG MyQuick import_site_database db.php db_name @var", array('@var' => $db_name)), 'info');
-      drush_log(dt("DEBUG MyQuick import_site_database db.php oct_db_user @var", array('@var' => $oct_db_user)), 'info');
-      drush_log(dt("DEBUG MyQuick import_site_database db.php oct_db_pass @var", array('@var' => $oct_db_pass)), 'info');
-      drush_log(dt("DEBUG MyQuick import_site_database db.php oct_db_host @var", array('@var' => $oct_db_host)), 'info');
-      drush_log(dt("DEBUG MyQuick import_site_database db.php oct_db_port @var", array('@var' => $oct_db_port)), 'info');
-
-      // Create pre-db-import flag file.
-      $pre_import_flag = $backup_path . '/.pre_import_flag.pid';
-      $pre_import_flag_blank = "Starting Import \n";
-      $local_description = 'Adding Pre-DB-Import Flag-File import_site_database db.php';
-      if (!provision_file()->exists($pre_import_flag)->status()) {
-        provision_file()->file_put_contents($pre_import_flag, $pre_import_flag_blank)
-      	->succeed('Generated blank ' . $local_description)
-      	->fail('Could not generate ' . $local_description);
-      }
-
-      if (is_dir($oct_db_dirx) &&
-        $db_name &&
-        $oct_db_user &&
-        $oct_db_pass &&
-        $oct_db_host &&
-        $oct_db_port) {
-        $command = sprintf($myloader_path . ' --database=' . $db_name . ' --host=' . $oct_db_host . ' --user=' . $oct_db_user . ' --password=' . $oct_db_pass . ' --port=' . $oct_db_port . ' --directory=' . $oct_db_dirx . ' --threads=' . $threads . ' --overwrite-tables --verbose=1');
-        drush_log(dt("DEBUG MyQuick import_site_database db.php Cmd @var", array('@var' => $command)), 'info');
-        drush_shell_exec($command);
-
-        if (!$command) {
-          drush_set_error('PROVISION_DB_IMPORT_FAILED', dt('Database import failed (%command)', array('%command' => $command)));
-        }
-
-        // Delete pre-db-import flag file.
-        provision_file()->unlink($pre_import_flag)
-          ->succeed('Remove Pre-DB-Import Flag-File import_site_database db.php')
-          ->fail('Could not remove Pre-DB-Import Flag-File import_site_database db.php');
-
-		// Create post-db-import flag file.
-		$post_import_flag = $backup_path . '/.post_import_flag.pid';
-		$post_import_flag_blank = "Post-DB-Import \n";
-		$local_description = 'Adding Post-DB-Import Flag-File import_site_database db.php';
-		if (!provision_file()->exists($post_import_flag)->status()) {
-		  provision_file()->file_put_contents($post_import_flag, $post_import_flag_blank)
-			->succeed('Generated blank ' . $local_description)
-			->fail('Could not generate ' . $local_description);
-		}
-      }
+    if (is_null($dump_file)) {
+      $dump_file = d()->site_path . '/database.sql';
     }
-    else {
-      if (is_null($dump_file)) {
-        $dump_file = d()->site_path . '/database.sql';
-      }
-      if (empty($creds)) {
-        $creds = $this->fetch_site_credentials();
-      }
-      $exists = provision_file()->exists($dump_file)
-        ->succeed('Found database dump at @path.')
-        ->fail('No database dump was found at @path.', 'PROVISION_DB_DUMP_NOT_FOUND')
+    if (empty($creds)) {
+      $creds = $this->fetch_site_credentials();
+    }
+    $exists = provision_file()->exists($dump_file)
+      ->succeed('Found database dump at @path.')
+      ->fail('No database dump was found at @path.', 'PROVISION_DB_DUMP_NOT_FOUND')
+      ->status();
+    if ($exists) {
+      $readable = provision_file()->readable($dump_file)
+        ->succeed('Database dump at @path is readable')
+        ->fail('The database dump at @path could not be read.', 'PROVISION_DB_DUMP_NOT_READABLE')
         ->status();
-      if ($exists) {
-        $readable = provision_file()->readable($dump_file)
-          ->succeed('Database dump at @path is readable')
-          ->fail('The database dump at @path could not be read.', 'PROVISION_DB_DUMP_NOT_READABLE')
-          ->status();
-        if ($readable) {
-          $this->import_dump($dump_file, $creds);
-        }
+      if ($readable) {
+        $this->import_dump($dump_file, $creds);
       }
     }
   }
@@ -323,15 +238,7 @@ class Provision_Service_db extends Provision_Service {
     // [ML] SYMBIOTIC If the drush options are not set, do it ourselves
     // drush_get_option is rather opaque, and maybe it would just be simpler to stop using it
     if (!drush_get_option('db_name')) {
-      global $options;
-      require_once d()->site_path . '/drushrc.php';
-      foreach ($keys as $key) {
-        if (!empty($options[$key])) {
-          drush_set_option($key, $options[$key]);
-          $creds[$key] = $options[$key];
-          $_SERVER[$key] = $options[$key];
-        }
-      }
+      $creds = provision_reload_site_drushrc();
     }
     else {
       // This still needs to happen otherwise sometimes the drushrc.php is trashed

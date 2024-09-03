@@ -132,14 +132,7 @@ function drush_provision_drupal_pre_provision_verify() {
     _provision_drupal_maintain_aliases();
     _provision_drupal_ensure_htaccess_update();
     // Requires at least the database settings to complete.
-
-    $hostmaster = provision_sitealias_get_record('@hostmaster');
-    if (!in_array(d()->name, ['@hm', '@hostmaster', '@' . $hostmaster['uri']])) {
-      _provision_drupal_create_settings_file();
-    }
-    else {
-      drush_log('Skipping _provision_drupal_create_settings_file in platform/verify.provision.inc because it is buggy');
-    }
+    _provision_drupal_create_settings_file();
 
     // If this is the hostmaster site, save the ~/.drush/drushrc.php file.
     $hostmaster = provision_sitealias_get_record('@hostmaster');
@@ -164,15 +157,15 @@ function drush_provision_drupal_post_provision_verify() {
   d()->root = provision_auto_fix_platform_root(d()->root);
 
   if (d()->type === 'site') {
-    $command = "drush cr 2>&1";
+    $command = "cr";
 
     if (provision_get_drupal_core_major_version() < 8) {
-      $command = "drush cc all 2>&1";
+      $command = "cc all";
     }
 
     drush_log(dt("Drupal: Flushing cache..."), 'ok');
     chdir(d()->site_path);
-    provision_exec($command);
+    provision_exec_drush($command);
 
     drush_set_option('installed', TRUE, 'site');
     _provision_client_create_symlink();
