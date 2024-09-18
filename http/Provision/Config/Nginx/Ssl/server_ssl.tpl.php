@@ -29,15 +29,8 @@ if ($satellite_mode == 'boa') {
 ?>
 
 server {
-<?php if ($satellite_mode == 'boa'): ?>
-  listen       <?php print "{$ssl_listen_ipv4}:{$http_ssl_port} {$ssl_args}"; ?>;
-  #listen       <?php print "{$ssl_listen_ipv6}:{$http_ssl_port} {$ssl_args}"; ?>;
-<?php else: ?>
-<?php foreach ($server->ip_addresses as $ip) :?>
-  listen       <?php print "{$ip}:{$http_ssl_port} {$ssl_args}"; ?>;
-<?php endforeach; ?>
-  #listen       <?php print "[::]:{$http_ssl_port} {$ssl_args}"; ?>;
-<?php endif; ?>
+  listen       <?php print "*:{$http_ssl_port} {$ssl_args}"; ?>;
+  listen       <?php print "[::]:{$http_ssl_port} {$ssl_args}"; ?>;
   server_name  _;
   ssl_stapling               on;
   ssl_stapling_verify        on;
