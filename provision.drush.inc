@@ -56,8 +56,6 @@ function provision_drush_init() {
   d(drush_get_option($hash_name, '@self', 'alias'), TRUE);
   // Make sure that the provision command is not being run as the root user.
   _provision_drush_check_user();
-  // Abort the process if the load is too high.
-  _provision_drush_check_load();
 }
 
 /**
@@ -69,19 +67,6 @@ function _provision_drush_check_user() {
   $name = posix_getpwuid(posix_geteuid());
   if (preg_match("/^provision-\b/", $command['command']) && $name['name'] == 'root') {
     return drush_set_error('PROVISION_IS_ROOT', dt('You are running the provision script as the root user. Exiting'));
-  }
-}
-
-/**
- * This will abort any process running drush if the load is critical.
- *
- * @see provision_load_critical()
- */
-function _provision_drush_check_load() {
-  $load = sys_getloadavg();
-  if (provision_load_critical($load)) {
-    drush_set_error('PROVISION_OVERLOAD', dt("load on system too heavy (@load), aborting", array('@load' => join(" ", $load))));
-    exit(1);
   }
 }
 
@@ -388,115 +373,7 @@ function drush_provision_verify() {
 }
 
 function _provision_default_web_group() {
-  $info = posix_getgrgid(posix_getgid());
-  $common_groups = array(
-    'www-data',
-    'apache',
-    'nginx',
-    'www',
-    '_www',
-    'webservd',
-    'httpd',
-    'nogroup',
-    'nobody',
-    $info['name']);
-
-  foreach ($common_groups as $group) {
-    if (provision_posix_groupname($group)) {
-      return $group;
-      break;
-    }
-  }
-  return NULL;
-}
-
-/**
- * determine the number of CPU on the machine
- *
- * This tries a best guess at the number of CPUs running on the system. This is
- * useful for calculating sane load threshold.
- *
- * On Linux, this parses /proc/cpuinfo and looks for lines like this:
- *
- * processor	: 0
- * ...
- * processor	: 1
- * processor	: n
- *
- * The number of CPUs on the system is n+1, we just count the number of lines.
- *
- * Other systems remain to be implemented, and would be best implemetend
- * through a PECL (or similar) extension that would use the POSIX sysconf
- * interface, as such:
- *
- * ncpus = sysconf(_SC_NPROCESSORS_ONLN);
- *
- * If no method can be found to figure out the number of CPUs, this will return
- * FALSE.
- *
- * People wishing to extend this to other platforms should look at
- * suggestions at:
- *
- * http://groups.google.com/group/sage-devel/browse_thread/thread/d65209f7ad6057fc
- *
- * @see provision_load_critical()
- * @todo implement for other systems than Linux
- */
-function provision_count_cpus() {
-  $ncpus = FALSE;
-  if (is_readable("/data/all/cpuinfo")) {
-    # this should work on BOA with a /data/all/cpuinfo generated daily
-    $cpuinfo = (int) file_get_contents("/data/all/cpuinfo");
-    if ($cpuinfo !== FALSE && is_numeric($cpuinfo)) {
-      $ncpus = $cpuinfo;
-    }
-  }
-  elseif (is_readable("/proc/cpuinfo")) {
-    # this should work on Linux with a /proc filesystem
-    $cpuinfo = file_get_contents("/proc/cpuinfo");
-    if ($cpuinfo !== FALSE) {
-      if (preg_match_all("/^processor.*:.*[0-9]+$/m", $cpuinfo, $matches)) {
-        $ncpus = count(array_pop($matches));
-      }
-    }
-  }
-  return $ncpus;
-}
-
-define('CRITICAL_LOAD_MULTIPLIER', 5);
-define('CRITICAL_LOAD_THRESHOLD', 10);
-
-/**
- * determine if overall load of the machine is critical
- *
- * We use the "average system load" of the system as a metric, as available
- * through 'uptime' or in PHP sys_getloadavg() since 5.1. The load is usually
- * defined as "the number of processes in the system run queue"
- *
- * It's not a really reliable metric, but it's the best shot we've got without
- * getting into real specific details about I/O, CPU or memory load that are
- * going to be even tougher to evaluate.
- *
- * We base our evaluation on the number of CPUs on the servers. If there are
- * more than 5 processes waiting per CPU, we abort completely. If we ignore the
- * number of available CPUs, we assume a critical limit is a load of 10.
- *
- * @see sys_getloadavg()
- */
-function provision_load_critical($load = NULL, $threshold = NULL) {
-  if (is_null($load)) {
-    $load = sys_getloadavg();
-  }
-  if (is_null($threshold)) {
-    if ($ncpus = provision_count_cpus()) {
-      $threshold = $ncpus * drush_get_option('critical_load_multiplier', CRITICAL_LOAD_MULTIPLIER);
-    }
-    else {
-      // can't determine the number of CPU, we hardcode at load 10
-      $threshold = drush_get_option('critical_load_threshold', CRITICAL_LOAD_THRESHOLD);
-    }
-  }
-  return ($load[0] > $threshold);
+  return 'www-data';
 }
 
 /**
