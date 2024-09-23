@@ -98,7 +98,6 @@ class Provision_Context_server extends Provision_Context {
     if ($type && $type != 'NONE') {
       $className = sprintf("Provision_Service_%s_%s", $service, $type);
       if (class_exists($className)) {
-        drush_log("Loading $type driver for the $service service");
         $object = new $className($this->name);
         $this->services[$service] = $object;
         $this->setProperty($type_option, $type);
