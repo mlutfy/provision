@@ -170,12 +170,10 @@ if ($nginx_has_gzip) {
   recursive_error_pages           on;
   reset_timedout_connection       on;
   fastcgi_intercept_errors        on;
-<?php if ($satellite_mode == 'boa'): ?>
   server_tokens                  off;
   fastcgi_hide_header         'Link';
   fastcgi_hide_header  'X-Generator';
   fastcgi_hide_header 'X-Powered-By';
-<?php endif; ?>
 
  ## SSL performance
   ssl_session_cache   shared:SSL:10m;
