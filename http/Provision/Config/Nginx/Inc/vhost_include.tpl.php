@@ -108,7 +108,6 @@ if ( $rce = "AB" ) {
 # but seems to work fine if we omit it.
 # set $nocache_details "Cache";
 
-<?php if ($satellite_mode == 'boa'): ?>
 ###
 ### Return 404 on special PHP URLs to avoid revealing version used,
 ### even indirectly. See also: https://drupal.org/node/2116387
@@ -135,7 +134,6 @@ if ($is_botnet) {
 ### Include high load protection config if exists.
 ###
 include /data/conf/nginx_high_load.c*;
-<?php endif; ?>
 
 ###
 ### Deny not compatible request methods without 405 response.
@@ -158,31 +156,6 @@ if ($is_denied) {
 ###
 add_header X-Content-Type-Options nosniff;
 add_header X-XSS-Protection "1; mode=block";
-<?php endif; ?>
-
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Force clean URLs for Drupal 8+.
-###
-rewrite ^/index.php/(.*)$ $scheme://$host/$1 permanent;
-
-###
-### Include high level local configuration override if exists.
-###
-include <?php print $aegir_root; ?>/config/server_master/nginx/post.d/nginx_force_include*;
-
-###
-### Include PHP-FPM version override logic if exists.
-###
-include <?php print $aegir_root; ?>/config/server_master/nginx/post.d/fpm_include*;
-
-###
-### Allow to use non-default PHP-FPM version for the site
-### listed in the special include file.
-###
-if ($user_socket = '') {
-  set $user_socket "<?php print $script_user; ?>";
-}
 <?php endif; ?>
 
 ###
@@ -288,58 +261,14 @@ location = /ads.txt {
   try_files /sites/$main_site_name/files/$host.ads.txt /sites/$main_site_name/files/ads.txt $uri =404;
 }
 
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Allow local access to the FPM status page.
-###
-location = /fpm-status {
-  access_log   off;
-  allow        127.0.0.1;
-  deny         all;
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass 127.0.0.1:9000;
-<?php else: ?>
-  fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
-}
-
-###
-### Allow local access to the FPM ping URI.
-###
-location = /fpm-ping {
-  access_log   off;
-  allow        127.0.0.1;
-  deny         all;
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass 127.0.0.1:9000;
-<?php else: ?>
-  fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
-}
-<?php endif; ?>
-
 <?php if ($nginx_config_mode == 'extended'): ?>
 ###
 ### Allow local access to support wget method in Aegir settings
 ### for running sites cron.
 ###
 location = /cron.php {
-<?php if ($satellite_mode == 'boa'): ?>
-  allow        127.0.0.1;
-  deny         all;
-<?php endif; ?>
   try_files    $uri =404;
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass 127.0.0.1:9000;
-<?php else: ?>
   fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
 }
 
 ###
@@ -347,10 +276,6 @@ location = /cron.php {
 ### for running sites cron in Drupal 8+.
 ###
 location ^~ /cron/ {
-<?php if ($satellite_mode == 'boa'): ?>
-  allow        127.0.0.1;
-  deny         all;
-<?php endif; ?>
 <?php if ($nginx_config_mode == 'extended'): ?>
   set $nocache_details "Skip";
 <?php endif; ?>
@@ -382,40 +307,6 @@ location ^~ /js/ {
   }
 }
 
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Deny access to Hostmaster web/db server node.
-### It is still possible to edit or break web/db server
-### node at /node/2/edit, if you know what are you doing.
-###
-location ^~ /hosting/c/server_master {
-  if ($cache_uid = '') {
-    return 403;
-  }
-  if ( $is_bot ) {
-    return 403;
-  }
-  access_log off;
-  return 301 $scheme://$host/hosting/sites;
-}
-
-###
-### Deny access to Hostmaster db server node.
-### It is still possible to edit or break db server
-### node at /node/4/edit, if you know what are you doing.
-###
-location ^~ /hosting/c/server_localhost {
-  if ($cache_uid = '') {
-    return 403;
-  }
-  if ( $is_bot ) {
-    return 403;
-  }
-  access_log off;
-  return 301 $scheme://$host/hosting/sites;
-}
-<?php endif; ?>
-
 ###
 ### Fix for #2005116
 ###
@@ -439,24 +330,6 @@ location ^~ /hosting {
   set $nocache_details "Skip";
   try_files $uri @drupal;
 }
-
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Deny cache details display.
-###
-location ^~ /admin/settings/performance/cache-backend {
-  access_log off;
-  return 301 $scheme://$host/admin/settings/performance;
-}
-
-###
-### Deny cache details display.
-###
-location ^~ /admin/config/development/performance/redis {
-  access_log off;
-  return 301 $scheme://$host/admin/config/development/performance;
-}
-<?php endif; ?>
 
 ###
 ### Support for backup_migrate module download/restore/delete actions.
@@ -724,13 +597,6 @@ location ~* ^/sites/.*/files/config_.* {
   deny all;
 }
 
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Include local configuration override if exists.
-###
-include <?php print $aegir_root; ?>/config/server_master/nginx/post.d/nginx_vhost_include*;
-<?php endif; ?>
-
 <?php if ($nginx_config_mode == 'extended'): ?>
 ###
 ### Private downloads are always sent to the drupal backend.
@@ -914,25 +780,6 @@ location ^~ /files/ {
   add_header X-Content-Type-Options nosniff;
   add_header X-XSS-Protection "1; mode=block";
 
-<?php if ($satellite_mode == 'boa'): ?>
-  ###
-  ### Sub-location to support H.264/AAC files with short URIs.
-  ###
-  location ~* /files/.+\.(?:mp4|m4a)$ {
-    mp4;
-    mp4_buffer_size 1m;
-    mp4_max_buffer_size 5m;
-    expires 30d;
-    access_log    off;
-    log_not_found off;
-    add_header Access-Control-Allow-Origin *;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    rewrite  ^/files/(.*)$  /sites/$main_site_name/files/$1 last;
-    try_files   $uri =404;
-  }
-<?php endif; ?>
-
   ###
   ### Sub-location to support files/css with short URIs.
   ###
@@ -1075,38 +922,6 @@ location ~* ^/sites/.+/files/.+\.(?:pdf|aspx?)$ {
   try_files   $uri =404;
 }
 
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Pseudo-streaming server-side support for Flash Video (FLV) files.
-###
-location ~* ^.+\.flv$ {
-  flv;
-  expires 30d;
-  access_log    off;
-  log_not_found off;
-  add_header Access-Control-Allow-Origin *;
-  add_header X-Content-Type-Options nosniff;
-  add_header X-XSS-Protection "1; mode=block";
-  try_files $uri =404;
-}
-
-###
-### Pseudo-streaming server-side support for H.264/AAC files.
-###
-location ~* ^.+\.(?:mp4|m4a)$ {
-  mp4;
-  mp4_buffer_size 1m;
-  mp4_max_buffer_size 5m;
-  expires 30d;
-  access_log    off;
-  log_not_found off;
-  add_header Access-Control-Allow-Origin *;
-  add_header X-Content-Type-Options nosniff;
-  add_header X-XSS-Protection "1; mode=block";
-  try_files $uri =404;
-}
-<?php endif; ?>
-
 ###
 ### Serve & no-log some static files as is, without forcing default_type.
 ###
@@ -1125,22 +940,13 @@ location ~* /(?:cross-?domain)\.xml$ {
 ###
 # Symbiotic: added moxiemanager
 location ~* /(?:modules|libraries)/(?:contrib/)?(?:ad|tinybrowser|f?ckeditor|tinymce|wysiwyg_spellcheck|ecc|civicrm|fbconnect|radioactivity|statistics|moxiemanager)/.*\.php$ {
-<?php if ($satellite_mode == 'boa'): ?>
-  limit_conn   limreq 88;
-<?php endif; ?>
   # [ML] SYMBIOTIC - Always log requests to the REST endpoint
   # access_log   off;
   if ( $is_bot ) {
     return 403;
   }
   try_files    $uri =404;
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass 127.0.0.1:9000;
-<?php else: ?>
   fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
 }
 
 ###
@@ -1262,84 +1068,6 @@ location ~* ^/(?:.*/)?(?:node/[0-9]+/delete|approve) {
   try_files $uri @drupal;
 }
 
-<?php if ($satellite_mode == 'boa'): ?>
-###
-### Support for ESI microcaching: http://groups.drupal.org/node/197478.
-###
-### This may enhance not only anonymous visitors, but also
-### logged in users experience, as it allows you to separate
-### microcache for ESI/SSI includes (valid for just 5 seconds)
-### from both default Speed Booster cache for anonymous visitors
-### (valid by default for 10s or 1h, unless purged on demand via
-### recently introduced Purge/Expire modules) and also from
-### Speed Booster cache per logged in user (valid for 10 seconds).
-###
-### Now you have three different levels of Speed Booster cache
-### to leverage and deliver the 'live content' experience for
-### all visitors, and still protect your server from DoS or
-### simply high load caused by unexpected high traffic etc.
-###
-location ~ ^/(?<esi>esi/.*)"$ {
-  ssi on;
-  ssi_silent_errors on;
-  internal;
-  limit_conn limreq 888;
-  add_header X-Device "$device";
-  add_header X-Speed-Micro-Cache "$upstream_cache_status";
-  add_header X-Speed-Micro-Cache-Expire "5s";
-  add_header X-NoCache "$nocache_details";
-  add_header X-GeoIP-Country-Code "$geoip_country_code";
-  add_header X-GeoIP-Country-Name "$geoip_country_name";
-  add_header X-This-Proto "$http_x_forwarded_proto";
-  add_header X-Server-Name "$main_site_name";
-  add_header Cache-Control "no-store, no-cache, must-revalidate, post-check=0, pre-check=0";
-  add_header X-Content-Type-Options nosniff;
-  add_header X-XSS-Protection "1; mode=block";
-  ###
-  ### Set correct, local $uri.
-  ###
-  fastcgi_param QUERY_STRING q=$esi;
-  fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass  unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass  127.0.0.1:9000;
-<?php else: ?>
-  fastcgi_pass  unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
-  ###
-  ### Use Nginx cache for all visitors.
-  ###
-  set $nocache "";
-  if ( $http_cookie ~* "NoCacheID" ) {
-    set $nocache "NoCache";
-  }
-  fastcgi_cache speed;
-  fastcgi_cache_methods GET HEAD;
-  fastcgi_cache_min_uses 1;
-  fastcgi_cache_key "$scheme$is_bot$device$host$request_method$key_uri$cache_uid$http_x_forwarded_proto$sent_http_x_local_proto$cookie_respimg";
-  fastcgi_cache_valid 200 10s;
-  fastcgi_cache_valid 301 302 403 404 1s;
-  fastcgi_cache_valid any 1s;
-  fastcgi_cache_lock on;
-  fastcgi_ignore_headers Cache-Control Expires Vary;
-  fastcgi_pass_header Set-Cookie;
-  fastcgi_pass_header X-Accel-Expires;
-  fastcgi_pass_header X-Accel-Redirect;
-  fastcgi_no_cache $cookie_NoCacheID $http_authorization $nocache;
-  fastcgi_cache_bypass $cookie_NoCacheID $http_authorization $nocache;
-  fastcgi_cache_use_stale error http_500 http_503 invalid_header timeout updating;
-  expires epoch;
-}
-
-###
-### Workaround for https://www.drupal.org/node/2599326.
-###
-if ( $args ~* "/autocomplete/" ) {
-  return 405;
-}
-error_page 405 = @drupal;
-<?php endif; ?>
 <?php endif; ?>
 
 ###
@@ -1347,11 +1075,6 @@ error_page 405 = @drupal;
 ###
 location / {
 <?php if ($nginx_config_mode == 'extended'): ?>
-<?php if ($satellite_mode == 'boa'): ?>
-  if ( $http_user_agent ~* wget ) {
-    return 403;
-  }
-<?php endif; ?>
   try_files $uri @cache;
 <?php else: ?>
   try_files $uri @drupal;
@@ -1489,12 +1212,6 @@ location @wordpress {
 ### Send all non-static requests to php-fpm, restricted to known php file.
 ###
 location = /index.php {
-<?php if ($satellite_mode == 'boa'): ?>
-  limit_conn    limreq 88;
-  add_header X-Device "$device";
-  add_header X-GeoIP-Country-Code "$geoip_country_code";
-  add_header X-GeoIP-Country-Name "$geoip_country_name";
-<?php endif; ?>
   add_header X-Core-Variant "$core_detected";
   add_header X-Loc-Where "$location_detected";
   add_header X-Http-Pragma "$http_pragma";
@@ -1515,13 +1232,7 @@ location = /index.php {
 
   add_header Cache-Control "no-store, no-cache, must-revalidate, post-check=0, pre-check=0";
   try_files     $uri =404; ### check for existence of php file first
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass  unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass  127.0.0.1:9000;
-<?php else: ?>
   fastcgi_pass  unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
   ###
   ### Detect supported no-cache exceptions
   ###
@@ -1579,21 +1290,9 @@ location ~* ^/(?:core/)?(?:boost_stats|rtoc|js|install)\.php$ {
 <?php else: ?>
 location ~* ^/(?:index|cron|update|authorize|xmlrpc)\.php$ {
 <?php endif; ?>
-<?php if ($satellite_mode == 'boa'): ?>
-  limit_conn   limreq 88;
-  if ( $is_bot ) {
-    return 404;
-  }
-<?php endif; ?>
   access_log   off;
   try_files    $uri =404; ### check for existence of php file first
-<?php if ($satellite_mode == 'boa'): ?>
-  fastcgi_pass unix:/var/run/$user_socket.fpm.socket;
-<?php elseif ($phpfpm_mode == 'port'): ?>
-  fastcgi_pass 127.0.0.1:9000;
-<?php else: ?>
   fastcgi_pass unix:<?php print $phpfpm_socket_path; ?>;
-<?php endif; ?>
 }
 
 ###
