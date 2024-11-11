@@ -220,7 +220,7 @@ function _provision_find_profiles() {
 
   foreach($profiles_subdirs as $profiles_subdir) {
     if (!$dir = opendir($profiles_subdir)) {
-      drush_log(dt("Cannot find profiles directory"), 'error');
+      drush_log(dt("Cannot find profiles directory"), 'warning');
       return FALSE;
     }
 

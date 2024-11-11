@@ -270,6 +270,11 @@ function drush_provision_hostmaster_install($site = NULL) {
   drush_set_default('profile', 'hostmaster');
   $profile = drush_get_option('profile');
 
+  // For Backdrop, do not use profiles (I don't know if they exist, but they're a pain)
+  if (provision_is_backdrop()) {
+    $profile = NULL;
+  }
+
   $site_name = '@hostmaster';
   drush_invoke_process('@none', "provision-save", array($site_name), array(
     'context_type' => 'site',
@@ -301,6 +306,7 @@ function drush_provision_hostmaster_install($site = NULL) {
 
   drush_print(dt("Initializing the hosting system"));
   drush_invoke_process('@none', 'cache-clear', array('drush'));
+  provision_exec_drush('en hosting');
   provision_backend_invoke($site_name, 'hosting-setup');
 
   drush_print("");

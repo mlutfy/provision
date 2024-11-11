@@ -524,11 +524,11 @@ function _provision_drupal_rebuild_caches() {
 
 function provision_drupal_find_sites() {
   $sites = array();
-  if ($dir = opendir("./sites")) {
+  if ($dir = opendir(d()->root . "/sites")) {
     while (FALSE !== ($subdir = readdir($dir))) {
       // skip internal directory pointers
       if ($subdir != '.' && $subdir != '..') {
-        $file = "./sites/$subdir/settings.php";
+        $file = d()->root . "/sites/$subdir/settings.php";
         if (file_exists("$file") && ($subdir != 'default') && !is_link("./sites/$subdir")) {
           $sites[$subdir] = $file;
         }
@@ -656,12 +656,14 @@ function provision_find_packages() {
   drush_set_option('profiles', array_keys((array) $profiles), 'drupal');
 
   // Iterate through the install profiles, finding the profile specific packages
-  foreach ($profiles as $profile => $info) {
-    if (empty($info->version)) {
-      $info->version = provision_get_drupal_core_version();
+  if (!empty($profiles)) {
+    foreach ($profiles as $profile => $info) {
+      if (empty($info->version)) {
+        $info->version = provision_get_drupal_core_version();
+      }
+      $packages['base']['profiles'][$profile] = $info;
+      $packages['profiles'][$profile] =  _provision_find_packages('profiles', $profile);
     }
-    $packages['base']['profiles'][$profile] = $info;
-    $packages['profiles'][$profile] =  _provision_find_packages('profiles', $profile);
   }
 
   return $packages;

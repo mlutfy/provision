@@ -132,6 +132,9 @@ function drush_provision_drupal_provision_install() {
   if (version_compare($drupal_core_version, 10, '<')) {
     $command = 'drush -y site-install ' . $profile . ' --db-url=' . $db . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en';
   }
+  if (provision_is_backdrop()) {
+    $command = 'bee -y site-install ' . $profile . ' --db-name=' . $aegir_db_name . ' --db-user=' . $aegir_db_user . ' --db-pass=' . $aegir_db_pass . ' --site-name=' . $site_name . ' --sites-subdir=' . $site_name . ' --site-mail=' . $client_email . ' --locale=en --auto';
+  }
   drush_log(dt("Drupal: running: %command", ['%command' => $command]), 'ok');
   $output = system($command, $retval);
   drush_log(dt("Drupal: output: %output", ['%output' => $output]), 'ok');

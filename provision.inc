@@ -558,6 +558,21 @@ function provision_process($command, $cwd = null, $label = 'Process', $env = arr
 }
 
 /**
+ * Returns true the site is a Backdrop instance.
+ */
+function provision_is_backdrop() {
+  $core_path = d()->root . '/core/includes/bootstrap.inc';
+  if (file_exists($core_path)) {
+    $file_contents = file_get_contents($core_path);
+    preg_match("/define\('BACKDROP_VERSION', \'(\d)\.\d+/", $file_contents, $matches);
+    if (!empty($matches[1])) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
  * For Drupal 7/8/9/10
  */
 function provision_get_drupal_core_version() {
@@ -570,20 +585,33 @@ function provision_get_drupal_core_version() {
       return $drupal_version;
     }
   }
-  else {
-    // Drupal 7 or older
-    $core_path = d()->root . '/includes/bootstrap.inc';
-    if (file_exists($core_path)) {
-      $file_contents = file_get_contents($core_path);
-      // Versions can have a -dev in them, so only match the numeric parts
-      // Ex: if it is 7.123-dev, then match 7.123 and return only "7"
-      preg_match("/define\('VERSION', \'(\d)\.\d+/", $file_contents, $matches);
-      if (!empty($matches[1])) {
-        $drupal_version = $matches[1];
-        return $drupal_version;
-      }
+
+  // Drupal 7 or older
+  $core_path = d()->root . '/includes/bootstrap.inc';
+  if (file_exists($core_path)) {
+    $file_contents = file_get_contents($core_path);
+    // Versions can have a -dev in them, so only match the numeric parts
+    // Ex: if it is 7.123-dev, then match 7.123 and return only "7"
+    preg_match("/define\('VERSION', \'(\d)\.\d+/", $file_contents, $matches);
+    if (!empty($matches[1])) {
+      $drupal_version = $matches[1];
+      return $drupal_version;
     }
   }
+
+  // Backdrop (workaround so that drush/Aegir works)
+  $core_path = d()->root . '/core/includes/bootstrap.inc';
+  if (file_exists($core_path)) {
+    $file_contents = file_get_contents($core_path);
+    preg_match("/define\('BACKDROP_VERSION', \'(\d)\.\d+/", $file_contents, $matches);
+    if (!empty($matches[1])) {
+      // This is a workaround for now, so that drush works
+      drush_log('provision_get_drupal_core_version: detected Backdrop', 'warning');
+      drush_log(print_r(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS), 1), 'info');
+      return 7;
+    }
+  }
+
   drush_set_error('PROVISION_DRUPALVERSION_ERROR', "Could not determine the Drupal core version in provision_get_drupal_core_version()");
   return NULL;
 }
@@ -620,13 +648,16 @@ function provision_exec($command) {
  * because in d10, when running tasks using Aegir, it can be wonky
  */
 function provision_exec_drush($cmd) {
-  $drush = 'drush';
+  $drush = 'drush -l ' . d()->uri;
 
-  if (provision_get_drupal_core_major_version() >= 10) {
-    $drush = d()->root . '/../vendor/drush/drush/drush';
+  if (provision_is_backdrop()) {
+    $drush = 'bee';
+  }
+  elseif (provision_get_drupal_core_major_version() >= 10) {
+    $drush = d()->root . '/../vendor/drush/drush/drush -l ' . d()->uri;
   }
 
-  return provision_exec($drush . ' -l ' . d()->uri . ' ' . $cmd);
+  return provision_exec($drush . ' ' . $cmd);
 }
 
 /**
