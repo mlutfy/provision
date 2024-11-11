@@ -4,37 +4,6 @@
  * @file install the hostmaster system
  */
 
-/**
- * Implements drush_COMMAND_pre_validate().
- *
- * Ensure the database cannot be accessed by anonymous users, as it will
- * otherwise fail later in the install, and thus be harder to recover from.
- *
- * @see Provision_Service_db_mysql::grant_host().
- */
-function drush_provision_hostmaster_install_pre_validate() {
-
-  $user = 'intntnllyInvalid';
-  drush_command_invoke_all_ref('provision_db_username_alter', $user, drush_get_option('aegir_db_host', 'localhost'));
-  $command = sprintf('mysql -u %s -h %s -P %s -e "SELECT VERSION()"', $user, drush_get_option('aegir_db_host', 'localhost'), drush_get_option('aegir_db_port', '3306'));
-
-  // [ML] Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. ERROR at line 1: Unknown command '\('.
-  drush_log("DEBUG command drush_provision_hostmaster_install_pre_validate: $command", 'ok');
-  return;
-
-  drush_shell_exec($command);
-
-  if (preg_match("/Access denied for user '{$user}'@'([^']*)'/", implode('', drush_shell_exec_output()), $match)) {
-    return;
-  }
-  elseif (preg_match("/Host '([^']*)' is not allowed to connect to/", implode('', drush_shell_exec_output()), $match)) {
-    return;
-  }
-  else {
-    return drush_set_error('PROVISION_DB_CONNECT_FAIL', dt('Dummy connection failed to fail. Either your MySQL permissions are too lax, or the response was not understood. See http://is.gd/Y6i4FO for more information. %msg', array('%msg' => join("\n", drush_shell_exec_output()))));
-  }
-}
-
 function drush_provision_hostmaster_install_validate($site = NULL) {
   $script_user = drush_get_option('script_user');
   if (!$script_user && $server->script_user) {
@@ -303,7 +272,6 @@ function drush_provision_hostmaster_install($site = NULL) {
     return false;
   }
 
-
   drush_print(dt("Initializing the hosting system"));
   drush_invoke_process('@none', 'cache-clear', array('drush'));
   provision_exec_drush('en hosting');
@@ -325,7 +293,7 @@ function drush_provision_hostmaster_install($site = NULL) {
 }
 
 /**
- *  Implements drush_hook_post_hostmaster_install().
+ * Implements drush_hook_post_hostmaster_install().
  */
 function drush_provision_post_hostmaster_install() {
   $backend_only = drush_get_option('backend-only');
