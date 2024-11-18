@@ -296,18 +296,6 @@ location ^~ /search {
 }
 
 ###
-### Support for https://drupal.org/project/js module.
-###
-location ^~ /js/ {
-  location ~* ^/js/ {
-    if ( $is_bot ) {
-      return 403;
-    }
-    rewrite ^/(.*)$ /js.php?q=$1 last;
-  }
-}
-
-###
 ### Fix for #2005116
 ###
 location ^~ /hosting/sites {
@@ -533,6 +521,20 @@ location ~* /sites/.*/files/(css|js|styles)/(.*)$ {
   add_header X-XSS-Protection "1; mode=block";
   add_header Cache-Control "public";
   try_files  /sites/$main_site_name/files/$1/$2 $uri @drupal;
+}
+
+###
+### JS support for Backdrop
+###
+location ~* /js/(.*)$ {
+  access_log off;
+  log_not_found off;
+  expires    max;
+  add_header Access-Control-Allow-Origin *;
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+  add_header Cache-Control "public";
+  try_files  $uri @drupal;
 }
 
 ###
