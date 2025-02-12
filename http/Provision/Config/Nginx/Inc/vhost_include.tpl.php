@@ -1284,6 +1284,26 @@ location = /index.php {
 <?php endif; ?>
 
 ###
+### Support for the CiviCRM iframe core-extension
+###
+location /iframe.php {
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+  add_header Strict-Transport-Security $symbiotic_hsts;
+  add_header Content-Security-Policy $symbiotic_security_policy;
+  add_header Cache-Control "no-store, no-cache, must-revalidate, post-check=0, pre-check=0";
+  # @todo Might help for Drupal?
+  # add_header X-Frame-Options "";
+
+  fastcgi_split_path_info ^(.+\.php)(/.+)$;
+  fastcgi_param PATH_INFO $fastcgi_path_info;
+  fastcgi_param SCRIPT_FILENAME $document_root/iframe.php;
+  fastcgi_index iframe.php;
+  include fastcgi_params;
+  fastcgi_pass  unix:/var/run/php/php8.2-fpm.sock;
+}
+
+###
 ### Send other known php requests/files to php-fpm without any caching.
 ### [ML] SYMBIOTIC Removed boost, added 'install' for Backdrop
 ###
